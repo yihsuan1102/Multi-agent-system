@@ -2,7 +2,7 @@
 
 ## 概述
 
-本文件詳細說明 MaiAgent GenAI 自動回覆平台的 RESTful API 設計，包含6支核心API，支援用戶訊息提交、會話記錄查詢、對話管理及場景設定等功能。所有API設計遵循 RESTful 原則，並與資料庫設計保持一致。
+本文件詳細說明 MaiAgent GenAI 自動回覆平台的 RESTful API 設計，包含7支核心API，支援用戶訊息提交、會話記錄查詢、對話管理及場景設定等功能。所有API設計遵循 RESTful 原則，並與資料庫設計保持一致。
 
 ## API 概覽
 
@@ -13,8 +13,8 @@
 | 3 | 顯示所有會話 | GET | `/api/v1/conversations` |
 | 4 | 查詢特定會話 | GET | `/api/v1/conversations/{session_id}` |
 | 5 | 刪除特定對話 | DELETE | `/api/v1/conversations/{session_id}` |
-| 6a | 更新場景設定 | PUT | `/api/v1/scenarios/{scenario_id}` |
-| 6b | 建立新場景設定 | POST | `/api/v1/scenarios` |
+| 6 | 更新場景設定 | PUT | `/api/v1/scenarios/{scenario_id}` |
+| 7 | 建立新場景設定 | POST | `/api/v1/scenarios` |
 
 ## 通用規範
 
@@ -108,14 +108,12 @@ Authorization: Bearer {jwt_token}
 ```
 
 **錯誤狀態碼**：
-- 400 Bad Request: 請求資料格式錯誤
-- 401 Unauthorized: 認證失敗
-- 403 Forbidden: 沒有使用該場景的權限
+- 400 Bad Request: 請求資料格式錯誤或未通過 Serializers 驗證
+- 401 Unauthorized: JWT 憑證無效或未提供身份驗證
+- 403 Forbidden: 使用者 Role 沒有使用該場景的權限
 - 404 Not Found: 會話不存在
-- 429 Too Many Requests: 請求過於頻繁
-- 500 Internal Server Error: 資料庫錯誤
-- 503 Service Unavailable: 資料庫暫時無法使用
-- 504 Gateway Timeout: 資料庫交易執行超時
+- 500 Internal Server Error: 伺服器遇到未預期的狀況
+- 503 Service Unavailable: 伺服器、資料庫或 Celery 超載，或系統維護中
 
 ---
 
@@ -150,6 +148,7 @@ GET /api/v1/conversations/search?q=報價&page=1&page_size=10&start_date=2024-01
         "scenario": {
           "id": "550e8400-e29b-41d4-a716-446655440100",
           "name": "客服助理",
+          "type": "general",
           "description": "協助客戶進行產品諮詢"
         },
         "started_at": "2024-01-01T10:00:00Z",
@@ -178,11 +177,11 @@ GET /api/v1/conversations/search?q=報價&page=1&page_size=10&start_date=2024-01
 ```
 
 **錯誤狀態碼**：
-- 400 Bad Request: 查詢參數格式錯誤
-- 401 Unauthorized: 認證失敗
-- 500 Internal Server Error: Elasticsearch服務錯誤或資料庫連線失敗
-- 503 Service Unavailable: 搜尋服務暫時無法使用
-- 504 Gateway Timeout: 搜尋查詢超時
+- 400 Bad Request: 查詢參數格式錯誤或未通過 Serializers 驗證
+- 401 Unauthorized: JWT 憑證無效或未提供身份驗證
+- 403 Forbidden: 使用者 Role 沒有搜尋對話的權限
+- 500 Internal Server Error: 伺服器遇到未預期的狀況
+- 503 Service Unavailable: Elasticsearch 服務超載或系統維護中
 
 ---
 
@@ -224,6 +223,7 @@ GET /api/v1/conversations?page=1&page_size=15&status=Active&sort_by=started_at&s
         "scenario": {
           "id": "550e8400-e29b-41d4-a716-446655440100",
           "name": "客服助理",
+          "type": "general",
           "description": "協助客戶進行產品諮詢"
         },
         "started_at": "2024-01-01T10:00:00Z",
@@ -254,10 +254,11 @@ GET /api/v1/conversations?page=1&page_size=15&status=Active&sort_by=started_at&s
 ```
 
 **錯誤狀態碼**：
-- 400 Bad Request: 查詢參數格式錯誤
-- 401 Unauthorized: 認證失敗
-- 500 Internal Server Error: 資料庫查詢錯誤或系統內部錯誤
-- 503 Service Unavailable: 資料庫服務暫時無法使用
+- 400 Bad Request: 查詢參數格式錯誤或未通過 Serializers 驗證
+- 401 Unauthorized: JWT 憑證無效或未提供身份驗證
+- 403 Forbidden: 使用者 Role 沒有查看會話的權限
+- 500 Internal Server Error: 伺服器遇到未預期的狀況
+- 503 Service Unavailable: 資料庫服務超載或系統維護中
 
 ---
 
@@ -298,10 +299,22 @@ GET /api/v1/conversations/550e8400-e29b-41d4-a716-446655440000?include_messages=
       "scenario": {
         "id": "550e8400-e29b-41d4-a716-446655440100",
         "name": "客服助理",
+        "type": "general",
         "description": "協助客戶進行產品諮詢",
-        "langchain_config": {
-          "model": "gpt-4",
-          "temperature": 0.7
+        "config_json": {
+          "prompt": {
+            "system": "你是一個專業的客服助理",
+            "user_template": "客戶問題：{user_input}"
+          },
+          "llm": {
+            "provider": "openai",
+            "model": "gpt-4",
+            "temperature": 0.7
+          },
+          "memory": {
+            "type": "buffer",
+            "window": 10
+          }
         }
       },
       "started_at": "2024-01-01T10:00:00Z",
@@ -339,12 +352,12 @@ GET /api/v1/conversations/550e8400-e29b-41d4-a716-446655440000?include_messages=
 ```
 
 **錯誤狀態碼**：
-- 400 Bad Request: 查詢參數格式錯誤
-- 401 Unauthorized: 認證失敗
-- 403 Forbidden: 沒有查看該會話的權限
+- 400 Bad Request: 查詢參數格式錯誤或未通過 Serializers 驗證
+- 401 Unauthorized: JWT 憑證無效或未提供身份驗證
+- 403 Forbidden: 使用者 Role 沒有查看該會話的權限
 - 404 Not Found: 會話不存在
-- 500 Internal Server Error: 資料庫查詢錯誤或訊息載入失敗
-- 503 Service Unavailable: 資料庫服務暫時無法使用
+- 500 Internal Server Error: 伺服器遇到未預期的狀況
+- 503 Service Unavailable: 資料庫服務超載或系統維護中
 
 ---
 
@@ -378,16 +391,15 @@ Authorization: Bearer {jwt_token}
 ```
 
 **錯誤狀態碼**：
-- 401 Unauthorized: 認證失敗
-- 403 Forbidden: 沒有刪除該會話的權限
+- 401 Unauthorized: JWT 憑證無效或未提供身份驗證
+- 403 Forbidden: 使用者沒有刪除該會話的權限
 - 404 Not Found: 會話不存在
-- 409 Conflict: 會話狀態不允許刪除 (例如：正在處理中)
-- 500 Internal Server Error: 資料庫刪除操作失敗
-- 503 Service Unavailable: 資料庫服務暫時無法使用
+- 500 Internal Server Error: 伺服器遇到未預期的狀況
+- 503 Service Unavailable: 資料庫服務超載或系統維護中
 
 ---
 
-### 6a. 更新場景設定
+### 6. 更新場景設定
 
 **目的**：更新已存在場景的配置資訊
 
@@ -408,39 +420,30 @@ Authorization: Bearer {jwt_token}
 {
   "name": "更新後的場景名稱",
   "description": "更新後的場景描述",
-  "langchain_config": {
-    "model": "gpt-4-turbo",
-    "temperature": 0.8,
-    "max_tokens": 2000
-  },
-  "llm_config": {
-    "provider": "openai",
-    "api_version": "2024-02-01"
-  },
-  "prompt_template": {
-    "system_prompt": "你是一個專業的客服助理",
-    "user_prompt_template": "客戶問題：{user_input}",
-    "context_template": "參考資訊：{context}"
-  },
-  "rag_config": {
-    "enabled": true,
-    "vector_store": "elasticsearch",
-    "similarity_threshold": 0.7
-  },
-  "routing_weight": 1.5,
-  "routing_priority": 1
+  "type": "general",
+  "config_json": {
+    "prompt": {
+      "system": "你是一個專業的客服助理",
+      "user_template": "客戶問題：{user_input}"
+    },
+    "llm": {
+      "provider": "openai",
+      "model": "gpt-4-turbo",
+      "temperature": 0.8
+    },
+    "memory": {
+      "type": "buffer",
+      "window": 10
+    }
+  }
 }
 ```
 
 **請求欄位說明**：
 - `name` (string, 可選): 場景名稱
 - `description` (string, 可選): 場景描述
-- `langchain_config` (object, 可選): LangChain配置，對應Scenario表的langchain_config欄位
-- `llm_config` (object, 可選): LLM模型配置，對應llm_config欄位
-- `prompt_template` (object, 可選): 提示詞模板，對應prompt_template欄位
-- `rag_config` (object, 可選): RAG策略配置，對應rag_config欄位
-- `routing_weight` (decimal, 可選): 路由權重
-- `routing_priority` (integer, 可選): 路由優先級
+- `type` (string, 可選): 場景類型（如 LLMChain、SequentialChain、agent 等）
+- `config_json` (object, 可選): 場景配置，僅包含 `prompt`、`llm`、`memory`
 
 **成功回應 (200 OK)**：
 ```json
@@ -451,31 +454,22 @@ Authorization: Bearer {jwt_token}
       "id": "550e8400-e29b-41d4-a716-446655440100",
       "name": "更新後的場景名稱",
       "description": "更新後的場景描述",
-      "langchain_config": {
-        "model": "gpt-4-turbo",
-        "temperature": 0.8,
-        "max_tokens": 2000
+      "type": "general",
+      "config_json": {
+        "prompt": {
+          "system": "你是一個專業的客服助理",
+          "user_template": "客戶問題：{user_input}"
+        },
+        "llm": {
+          "provider": "openai",
+          "model": "gpt-4-turbo",
+          "temperature": 0.8
+        },
+        "memory": {
+          "type": "buffer",
+          "window": 10
+        }
       },
-      "llm_config": {
-        "provider": "openai",
-        "api_version": "2024-02-01"
-      },
-      "prompt_template": {
-        "system_prompt": "你是一個專業的客服助理",
-        "user_prompt_template": "客戶問題：{user_input}",
-        "context_template": "參考資訊：{context}"
-      },
-      "rag_config": {
-        "enabled": true,
-        "vector_store": "elasticsearch",
-        "similarity_threshold": 0.7
-      },
-      "scenario_type": "general",
-      "version": 2,
-      "routing_weight": 1.5,
-      "routing_priority": 1,
-      "is_global": false,
-      "created_by": "550e8400-e29b-41d4-a716-446655440200",
       "created_at": "2024-01-01T09:00:00Z",
       "updated_at": "2024-01-01T12:00:00Z"
     }
@@ -486,18 +480,16 @@ Authorization: Bearer {jwt_token}
 ```
 
 **錯誤狀態碼**：
-- 400 Bad Request: 請求資料格式錯誤
-- 401 Unauthorized: 認證失敗
-- 403 Forbidden: 沒有修改該場景的權限
+- 400 Bad Request: 請求資料格式錯誤或未通過 Serializers 驗證
+- 401 Unauthorized: JWT 憑證無效或未提供身份驗證
+- 403 Forbidden: 使用者 Role 沒有修改該場景的權限
 - 404 Not Found: 場景不存在
-- 422 Unprocessable Entity: 配置資料驗證失敗
-- 500 Internal Server Error: 資料庫更新失敗或配置驗證系統錯誤
-- 502 Bad Gateway: LangChain配置驗證服務無回應
-- 503 Service Unavailable: 場景配置服務暫時無法使用
+- 500 Internal Server Error: 伺服器遇到未預期的狀況
+- 503 Service Unavailable: 資料庫服務超載或系統維護中
 
 ---
 
-### 6b. 建立新場景設定
+### 7. 建立新場景設定
 
 **目的**：建立新的對話場景配置
 
@@ -515,41 +507,30 @@ Authorization: Bearer {jwt_token}
 {
   "name": "新場景名稱",
   "description": "新場景描述",
-  "langchain_config": {
-    "model": "gpt-4",
-    "temperature": 0.7,
-    "max_tokens": 1500
-  },
-  "llm_config": {
-    "provider": "openai",
-    "api_version": "2024-02-01"
-  },
-  "prompt_template": {
-    "system_prompt": "你是一個專業的技術支援專家",
-    "user_prompt_template": "技術問題：{user_input}",
-    "context_template": "技術文檔：{context}"
-  },
-  "rag_config": {
-    "enabled": false
-  },
-  "scenario_type": "technical_support",
-  "routing_weight": 1.0,
-  "routing_priority": 0,
-  "is_global": false
+  "type": "technical_support",
+  "config_json": {
+    "prompt": {
+      "system": "你是一個專業的技術支援專家",
+      "user_template": "技術問題：{user_input}"
+    },
+    "llm": {
+      "provider": "openai",
+      "model": "gpt-4",
+      "temperature": 0.7
+    },
+    "memory": {
+      "type": "buffer",
+      "window": 10
+    }
+  }
 }
 ```
 
 **請求欄位說明**：
 - `name` (string, 必填): 場景名稱
 - `description` (string, 可選): 場景描述
-- `langchain_config` (object, 必填): LangChain配置
-- `llm_config` (object, 必填): LLM模型配置
-- `prompt_template` (object, 必填): 提示詞模板
-- `rag_config` (object, 可選): RAG策略配置
-- `scenario_type` (string, 可選, 預設="general"): 場景類型
-- `routing_weight` (decimal, 可選, 預設=1.0): 路由權重
-- `routing_priority` (integer, 可選, 預設=0): 路由優先級
-- `is_global` (boolean, 可選, 預設=false): 是否為全域場景
+- `type` (string, 可選, 預設="general"): 場景類型
+- `config_json` (object, 必填): 場景配置，僅包含 `prompt`、`llm`、`memory`
 
 **成功回應 (201 Created)**：
 ```json
@@ -560,29 +541,22 @@ Authorization: Bearer {jwt_token}
       "id": "550e8400-e29b-41d4-a716-446655440101",
       "name": "新場景名稱",
       "description": "新場景描述",
-      "langchain_config": {
-        "model": "gpt-4",
-        "temperature": 0.7,
-        "max_tokens": 1500
+      "type": "technical_support",
+      "config_json": {
+        "prompt": {
+          "system": "你是一個專業的技術支援專家",
+          "user_template": "技術問題：{user_input}"
+        },
+        "llm": {
+          "provider": "openai",
+          "model": "gpt-4",
+          "temperature": 0.7
+        },
+        "memory": {
+          "type": "buffer",
+          "window": 10
+        }
       },
-      "llm_config": {
-        "provider": "openai",
-        "api_version": "2024-02-01"
-      },
-      "prompt_template": {
-        "system_prompt": "你是一個專業的技術支援專家",
-        "user_prompt_template": "技術問題：{user_input}",
-        "context_template": "技術文檔：{context}"
-      },
-      "rag_config": {
-        "enabled": false
-      },
-      "scenario_type": "technical_support",
-      "version": 1,
-      "routing_weight": 1.0,
-      "routing_priority": 0,
-      "is_global": false,
-      "created_by": "550e8400-e29b-41d4-a716-446655440200",
       "created_at": "2024-01-01T12:00:00Z",
       "updated_at": "2024-01-01T12:00:00Z"
     }
@@ -593,143 +567,11 @@ Authorization: Bearer {jwt_token}
 ```
 
 **錯誤狀態碼**：
-- 400 Bad Request: 請求資料格式錯誤
-- 401 Unauthorized: 認證失敗
-- 403 Forbidden: 沒有建立場景的權限
-- 409 Conflict: 場景名稱已存在
-- 422 Unprocessable Entity: 配置資料驗證失敗
-- 500 Internal Server Error: 資料庫插入失敗或配置驗證系統錯誤
-- 502 Bad Gateway: LangChain配置驗證服務無回應
-- 503 Service Unavailable: 場景建立服務暫時無法使用
-
-## 常見 5XX 伺服器錯誤
-
-### 5XX 錯誤概述
-
-5XX系列錯誤表示伺服器端發生錯誤，無法完成有效的請求。在MaiAgent平台中，這些錯誤通常與以下系統組件相關：
-
-### 主要5XX錯誤類型
-
-#### 500 Internal Server Error (內部伺服器錯誤)
-**常見情境**：
-- 資料庫連線中斷或查詢失敗
-- LLM服務呼叫異常
-- 配置驗證系統錯誤
-- Django應用程式內部異常
-- Celery任務執行失敗
-
-**錯誤回應範例**：
-```json
-{
-  "success": false,
-  "error": {
-    "code": "INTERNAL_SERVER_ERROR",
-    "message": "系統內部錯誤，請稍後再試",
-    "details": {
-      "error_id": "550e8400-e29b-41d4-a716-446655440999",
-      "component": "database",
-      "trace_id": "abc123"
-    }
-  },
-  "timestamp": "2024-01-01T12:00:00Z"
-}
-```
-
-#### 502 Bad Gateway (閘道錯誤)
-**常見情境**：
-- LangChain服務無回應
-- 外部LLM API（OpenAI、Claude等）無法連接
-- 配置驗證服務異常
-- 微服務間通訊失敗
-
-**錯誤回應範例**：
-```json
-{
-  "success": false,
-  "error": {
-    "code": "BAD_GATEWAY",
-    "message": "外部服務暫時無法使用",
-    "details": {
-      "upstream_service": "langchain",
-      "retry_after": 30
-    }
-  },
-  "timestamp": "2024-01-01T12:00:00Z"
-}
-```
-
-#### 503 Service Unavailable (服務無法使用)
-**常見情境**：
-- Celery任務佇列過載
-- 資料庫服務暫停維護
-- Elasticsearch服務重啟
-- 系統負載過高，暫時停止服務
-- LLM API配額已達上限
-
-**錯誤回應範例**：
-```json
-{
-  "success": false,
-  "error": {
-    "code": "SERVICE_UNAVAILABLE",
-    "message": "服務暫時無法使用，請稍後重試",
-    "details": {
-      "retry_after": 60,
-      "reason": "high_load",
-      "estimated_recovery": "2024-01-01T12:05:00Z"
-    }
-  },
-  "timestamp": "2024-01-01T12:00:00Z"
-}
-```
-
-#### 504 Gateway Timeout (閘道超時)
-**常見情境**：
-- LLM回應時間超過設定閾值
-- Celery任務執行超時
-- 複雜搜尋查詢超時
-- 資料庫查詢執行時間過長
-
-**錯誤回應範例**：
-```json
-{
-  "success": false,
-  "error": {
-    "code": "GATEWAY_TIMEOUT",
-    "message": "請求處理超時，請重新嘗試",
-    "details": {
-      "timeout_duration": "30s",
-      "operation": "llm_response",
-      "suggestion": "請簡化您的問題或稍後重試"
-    }
-  },
-  "timestamp": "2024-01-01T12:00:00Z"
-}
-```
-
-### 5XX錯誤處理策略
-
-#### 伺服器端監控
-1. **錯誤追蹤**：
-   - 所有5XX錯誤自動記錄到稽核日誌
-   - 包含錯誤ID、追蹤ID、堆疊資訊
-   - 整合告警系統
-
-2. **健康檢查**：
-   - 定期檢查各服務狀態
-   - 監控回應時間和錯誤率
-   - 自動故障轉移機制
-
-### API別5XX錯誤對應
-
-| API | 500 | 502 | 503 | 504 |
-|-----|-----|-----|-----|-----|
-| 1. 提交訊息 | 資料庫錯誤 | LLM服務異常 | Celery過載 | LLM超時 |
-| 2. 搜尋對話 | 系統錯誤 | - | ES服務停止 | 查詢超時 |
-| 3. 顯示會話 | 資料庫錯誤 | - | DB維護 | - |
-| 4. 查詢會話 | 載入失敗 | - | DB服務停止 | - |
-| 5. 刪除對話 | 刪除失敗 | - | DB維護 | - |
-| 6. 場景管理 | 驗證錯誤 | 配置服務異常 | 服務維護 | - |
+- 400 Bad Request: 請求資料格式錯誤或未通過 Serializers 驗證
+- 401 Unauthorized: JWT 憑證無效或未提供身份驗證
+- 403 Forbidden: 使用者 Role 沒有建立場景的權限
+- 500 Internal Server Error: 伺服器遇到未預期的狀況
+- 503 Service Unavailable: 資料庫服務超載或系統維護中
 
 ## 權限控制
 
@@ -747,16 +589,10 @@ Authorization: Bearer {jwt_token}
 ### 權限驗證流程
 
 1. **身分驗證**：檢查JWT Token有效性
-2. **角色權限**：根據用戶角色檢查操作權限
-3. **資源權限**：檢查是否有存取特定資源的權限
-4. **群組邊界**：非管理人員僅能操作群組內資源
+2. **角色權限**：根據 django-role-permissions 用戶角色檢查操作權限
+
 
 ## 效能考量
-
-### 快取策略
-- 場景配置快取 (30分鐘)
-- 用戶權限快取 (15分鐘)
-- 搜尋結果快取 (5分鐘)
 
 ### 分頁建議
 - 預設每頁20筆
@@ -772,27 +608,8 @@ Authorization: Bearer {jwt_token}
 
 ### 資料驗證
 - 所有輸入資料進行格式驗證
-- SQL注入防護
-- XSS攻擊防護
+
 
 ### 存取控制
 - 基於角色的存取控制 (RBAC)
 - 群組邊界隔離
-- 敏感資料遮罩
-
-### 稽核日誌
-- 記錄所有API呼叫
-- 追蹤權限變更
-- 監控異常行為
-
-## 總結
-
-本RESTful API設計提供了完整的MaiAgent平台核心功能，包含：
-
-1. **對話管理**：支援訊息提交、會話查詢與刪除
-2. **搜尋功能**：提供關鍵字搜尋與篩選功能  
-3. **場景管理**：支援場景配置的建立與更新
-4. **權限控制**：基於角色的細粒度權限管理
-5. **安全保障**：完整的認證、授權與稽核機制
-
-所有API設計都與資料庫設計保持一致，確保系統的完整性與可維護性。
