@@ -33,8 +33,8 @@ flowchart TB
     Server -- 訊息資料 --> Celery
     Celery -- 任務狀態 --> PostgreSQL
     PostgreSQL -- 訊息索引 --> Elasticsearch
-    MaiAgent -- 會話資料、場景配置 --> LangChain["LangChain<br>(LLMs)"]
-    LangChain -- AI回覆、場景列表與設定 --> MaiAgent
+    MaiAgent -- 會話資料、場景配置 --> LLMs
+    LLMs -- AI回覆 --> MaiAgent
 
      UserData:::data
      SessionData:::data
@@ -46,15 +46,14 @@ flowchart TB
     classDef default fill:#ffffff,stroke:#000000,stroke-width:2px,color:#000000
     classDef data fill:#f9f9f9,stroke:#000000,stroke-width:1px,color:#000000
 
-
 ```
 
 ## 架構說明
 
 ### 主要實體 (Entities)
 - **MaiAgent**: 主要系統平台，包含四個核心組件
-- **LangChain**: AI 模型管理框架，包含各種 LLMs
-- **LlamaIndex**: RAG 檢索增強生成系統
+- **LLM**: 各種 LLMs
+
 
 ### MaiAgent 核心組件 (Components)
 - **Server**: 應用伺服器，處理請求和回應協調
