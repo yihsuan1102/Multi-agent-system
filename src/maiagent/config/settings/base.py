@@ -338,11 +338,12 @@ SOCIALACCOUNT_FORMS = {"signup": "maiagent.users.forms.UserSocialSignupForm"}
 # django-rest-framework - https://www.django-rest-framework.org/api-guide/settings/
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework.authentication.SessionAuthentication",
-        "rest_framework.authentication.TokenAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_PAGINATION_CLASS": "maiagent.chat.api.pagination.DefaultPagination",
+    "PAGE_SIZE": 20,
 }
 
 # django-cors-headers - https://github.com/adamchainz/django-cors-headers#setup

@@ -112,3 +112,4 @@ package-lock.json
 doc/temp/
 doc/requirement/temp/
 note.md
+src/maiagent/maiagent/chat/api/__init__.py
