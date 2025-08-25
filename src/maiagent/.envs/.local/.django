@@ -12,3 +12,6 @@ REDIS_URL=redis://redis:6379/0
 # Flower
 CELERY_FLOWER_USER=debug
 CELERY_FLOWER_PASSWORD=debug
+
+# Database (added for docker exec manage.py usage)
+DATABASE_URL=postgres://debug:debug@postgres:5432/maiagent

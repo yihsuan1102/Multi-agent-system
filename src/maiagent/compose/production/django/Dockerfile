@@ -104,7 +104,7 @@ RUN chown -R django:django ${APP_HOME}
 
 USER django
 
-RUN DATABASE_URL="" \
+RUN DATABASE_URL="postgres://debug:debug@postgres:5432/maiagent" \
   DJANGO_SETTINGS_MODULE="config.settings.test" \
   python manage.py compilemessages
 
