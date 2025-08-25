@@ -41,6 +41,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    environment:
+      POSTGRES_USER: debug
+      POSTGRES_PASSWORD: debug
+      POSTGRES_DB: maiagent
 
   redis:
     image: docker.io/redis:6
