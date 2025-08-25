@@ -84,10 +84,12 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "drf_spectacular",
     "webpack_loader",
+    "django_elasticsearch_dsl",
 ]
 
 LOCAL_APPS = [
     "maiagent.users",
+    "maiagent.conversations",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
@@ -272,6 +274,22 @@ ELASTICSEARCH_URL = env("ELASTICSEARCH_URL", default="http://elasticsearch:9200"
 ELASTICSEARCH_VERIFY_SSL = env.bool("ELASTICSEARCH_VERIFY_SSL", default=False)
 ELASTICSEARCH_USERNAME = env("ELASTICSEARCH_USERNAME", default=None)
 ELASTICSEARCH_PASSWORD = env("ELASTICSEARCH_PASSWORD", default=None)
+
+# django-elasticsearch-dsl
+# ------------------------------------------------------------------------------
+ELASTICSEARCH_DSL = {
+    "default": {
+        "hosts": ELASTICSEARCH_URL,
+        # Optional auth/SSL settings
+        "http_auth": (
+            (ELASTICSEARCH_USERNAME, ELASTICSEARCH_PASSWORD)
+            if ELASTICSEARCH_USERNAME and ELASTICSEARCH_PASSWORD
+            else None
+        ),
+        "verify_certs": ELASTICSEARCH_VERIFY_SSL,
+    }
+}
+ELASTICSEARCH_DSL_AUTOSYNC = True
 
 # Celery
 # ------------------------------------------------------------------------------
