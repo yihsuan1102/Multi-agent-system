@@ -10,6 +10,30 @@
       "created_at": "2025-01-01T00:00:00Z",
       "updated_at": "2025-01-01T00:00:00Z"
     }
+  },
+  {
+    "model": "conversations.scenario",
+    "pk": 2,
+    "fields": {
+      "name": "GPT5-Minimal",
+      "description": "最小鏈：OpenAI GPT5",
+      "langchain_config": {"provider": "openai", "model": "gpt-5", "chain": "gpt5"},
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "conversations.scenario",
+    "pk": 3,
+    "fields": {
+      "name": "GPT5-Nano-Minimal",
+      "description": "最小鏈：OpenAI GPT5-nano",
+      "langchain_config": {"provider": "openai", "model": "gpt-5-nano", "chain": "gpt5_nano"},
+      "is_active": true,
+      "created_at": "2025-01-01T00:00:00Z",
+      "updated_at": "2025-01-01T00:00:00Z"
+    }
   }
 ]
 
