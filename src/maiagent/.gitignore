@@ -278,3 +278,6 @@ webpack-stats.json
 .env
 .envs/*
 !.envs/.local/
+
+# Ignore Django migrations in all apps except their package marker
+**/migrations/*
