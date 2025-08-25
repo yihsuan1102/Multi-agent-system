@@ -1,0 +1,5 @@
+# Elasticsearch local environment
+ELASTICSEARCH_URL=http://elasticsearch:9200
+ELASTICSEARCH_VERIFY_SSL=false
+ELASTICSEARCH_USERNAME=
+ELASTICSEARCH_PASSWORD=

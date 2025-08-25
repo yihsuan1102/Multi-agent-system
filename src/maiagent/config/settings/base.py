@@ -266,6 +266,13 @@ LOGGING = {
 REDIS_URL = env("REDIS_URL", default="redis://redis:6379/0")
 REDIS_SSL = REDIS_URL.startswith("rediss://")
 
+# Elasticsearch
+# ------------------------------------------------------------------------------
+ELASTICSEARCH_URL = env("ELASTICSEARCH_URL", default="http://elasticsearch:9200")
+ELASTICSEARCH_VERIFY_SSL = env.bool("ELASTICSEARCH_VERIFY_SSL", default=False)
+ELASTICSEARCH_USERNAME = env("ELASTICSEARCH_USERNAME", default=None)
+ELASTICSEARCH_PASSWORD = env("ELASTICSEARCH_PASSWORD", default=None)
+
 # Celery
 # ------------------------------------------------------------------------------
 if USE_TZ:
@@ -306,6 +313,7 @@ CELERY_WORKER_SEND_TASK_EVENTS = True
 CELERY_TASK_SEND_SENT_EVENT = True
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#worker-hijack-root-logger
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+
 # django-allauth
 # ------------------------------------------------------------------------------
 ACCOUNT_ALLOW_REGISTRATION = env.bool("DJANGO_ACCOUNT_ALLOW_REGISTRATION", True)
