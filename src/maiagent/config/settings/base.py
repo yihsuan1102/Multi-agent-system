@@ -315,6 +315,27 @@ CELERY_WORKER_SEND_TASK_EVENTS = True
 CELERY_TASK_SEND_SENT_EVENT = True
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#worker-hijack-root-logger
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+CELERY_TASK_DEFAULT_QUEUE = "default"
+CELERY_TASK_QUEUES = {
+    "default": {},
+    "ai_queue": {},
+    "monitor_queue": {},
+}
+CELERY_TASK_ROUTES = {
+    # AI 訊息處理任務走高優先級佇列
+    "maiagent.chat.tasks.process_message": {"queue": "ai_queue", "routing_key": "ai.process"},
+    # 系統監控任務
+    "maiagent.chat.tasks.system_health_check": {"queue": "monitor_queue", "routing_key": "monitor.health"},
+}
+
+# Celery Beat 排程（以資料庫排程器為主，提供預設值便於本地快速啟用）
+CELERY_BEAT_SCHEDULE = {
+    "system-health-check-5m": {
+        "task": "maiagent.chat.tasks.system_health_check",
+        "schedule": 5 * 60,
+        "options": {"queue": "monitor_queue", "routing_key": "monitor.health"},
+    }
+}
 
 # django-allauth
 # ------------------------------------------------------------------------------
