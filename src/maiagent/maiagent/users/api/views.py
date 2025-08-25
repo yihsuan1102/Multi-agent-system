@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
 from maiagent.users.models import User
+from maiagent.users.roles import Admin, Supervisor, Employee
 
 from .serializers import UserSerializer
 
@@ -24,3 +25,14 @@ class UserViewSet(RetrieveModelMixin, ListModelMixin, UpdateModelMixin, GenericV
     def me(self, request):
         serializer = UserSerializer(request.user, context={"request": request})
         return Response(status=status.HTTP_200_OK, data=serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="permissions")
+    def permissions(self, request):
+        user: User = request.user  # type: ignore[assignment]
+        if user.role == User.Role.ADMIN:
+            permissions = sorted(Admin.available_permissions.keys())
+        elif user.role == User.Role.SUPERVISOR:
+            permissions = sorted(Supervisor.available_permissions.keys())
+        else:
+            permissions = sorted(Employee.available_permissions.keys())
+        return Response(status=status.HTTP_200_OK, data={"permissions": permissions})

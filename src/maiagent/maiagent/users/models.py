@@ -16,6 +16,16 @@ class User(AbstractUser):
 
     # First and last name do not cover name patterns around the globe
     name = CharField(_("Name of User"), blank=True, max_length=255)
+    class Role:
+        ADMIN = "admin"
+        SUPERVISOR = "supervisor"
+        EMPLOYEE = "employee"
+        CHOICES = (
+            (ADMIN, "admin"),
+            (SUPERVISOR, "supervisor"),
+            (EMPLOYEE, "employee"),
+        )
+    role = CharField(max_length=32, choices=Role.CHOICES, default=Role.EMPLOYEE)
     # 群組邊界：管理員 group 可為 NULL
     group = ForeignKey("chat.Group", on_delete=SET_NULL, null=True, blank=True, related_name="users")
     first_name = None  # type: ignore[assignment]

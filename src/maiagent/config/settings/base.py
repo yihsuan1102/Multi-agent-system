@@ -84,6 +84,7 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "drf_spectacular",
     "webpack_loader",
+    "rolepermissions",
 ]
 
 LOCAL_APPS = [
@@ -368,5 +369,9 @@ WEBPACK_LOADER = {
         "IGNORE": [r".+\.hot-update.js", r".+\.map"],
     },
 }
+# django-role-permissions
+# ------------------------------------------------------------------------------
+# Basic roles used by the system. Implementations live in maiagent.users.roles
+ROLEPERMISSIONS_MODULE = "maiagent.users.roles"
 # Your stuff...
 # ------------------------------------------------------------------------------

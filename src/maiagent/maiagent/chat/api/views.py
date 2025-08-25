@@ -15,6 +15,12 @@ from rest_framework.response import Response
 
 from maiagent.chat.models import LlmModel, Message, Scenario, Session
 from maiagent.chat.tasks import process_message
+from maiagent.users.permissions import (
+    CanManageScenarios,
+    filter_sessions_for_user,
+    require_permission,
+    user_has_scenario_access,
+)
 
 from .serializers import (
     CreateMessageSerializer,
@@ -27,12 +33,12 @@ from .serializers import (
 
 
 class SessionViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.DestroyModelMixin):
-    queryset: QuerySet[Session] = Session.objects.all().select_related("scenario").order_by("-last_activity_at")
+    queryset: QuerySet[Session] = Session.objects.all().select_related("scenario", "user__group").order_by("-last_activity_at")
     serializer_class = SessionListSerializer
 
     def get_queryset(self) -> QuerySet[Session]:
         user = self.request.user
-        qs = self.queryset.filter(user=user)
+        qs = filter_sessions_for_user(self.queryset, user)
         status_param = self.request.query_params.get("status")
         scenario_id = self.request.query_params.get("scenario_id")
         if status_param:
@@ -59,8 +65,12 @@ class SessionViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retr
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"], url_path="messages")
+    @require_permission("send_message_to_scenario")
     def post_message(self, request: Request, pk: str | None = None) -> Response:
         session: Session = self.get_object()
+        # 檢查場景存取權（非管理員需檢查群組授權）
+        if not user_has_scenario_access(request.user, session.scenario_id):
+            return Response({"detail": "無場景存取權"}, status=status.HTTP_403_FORBIDDEN)
         if session.status not in (Session.Status.ACTIVE, Session.Status.REPLYED):
             return Response(
                 {"detail": "會話狀態不允許提交訊息"}, status=status.HTTP_400_BAD_REQUEST
@@ -94,8 +104,12 @@ class SessionViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retr
         return Response(MessageSerializer(message).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"], url_path="polling")
+    @require_permission("use_scenario")
     def polling(self, request: Request, pk: str | None = None) -> Response:
         session: Session = self.get_object()
+        # 可見性檢查
+        if not filter_sessions_for_user(Session.objects.filter(pk=session.pk), request.user).exists():
+            return Response({"detail": "無權限存取該會話"}, status=status.HTTP_403_FORBIDDEN)
         timeout_seconds = int(request.query_params.get("timeout", 30))
         deadline = time.monotonic() + max(1, min(timeout_seconds, 60))
 
@@ -172,6 +186,7 @@ class SessionViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retr
 class ScenarioViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.UpdateModelMixin):
     queryset: QuerySet[Scenario] = Scenario.objects.all()
     serializer_class = ScenarioUpsertSerializer
+    permission_classes = [CanManageScenarios]
 
     def get_serializer_class(self):  # type: ignore[override]
         if self.action in ("create", "update", "partial_update"):
