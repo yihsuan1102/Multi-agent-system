@@ -88,6 +88,7 @@ THIRD_PARTY_APPS = [
 
 LOCAL_APPS = [
     "maiagent.users",
+    "maiagent.chat",
     # Your stuff: custom apps go here
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
