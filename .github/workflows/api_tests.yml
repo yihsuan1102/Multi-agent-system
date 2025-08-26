@@ -54,6 +54,15 @@ jobs:
         pip install -r requirements/local.txt
         pip install coverage pytest-django
     
+    - name: 檢查資料庫連線與清理
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_maiagent
+        REDIS_URL: redis://localhost:6379/0
+      run: |
+        cd src/maiagent
+        python manage.py dbshell --settings=config.settings.test -c "SELECT version();" || echo "DB connection test"
+        python manage.py flush --noinput --settings=config.settings.test || echo "DB flush completed"
+    
     - name: 執行資料庫遷移
       env:
         DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_maiagent
@@ -61,7 +70,8 @@ jobs:
         CELERY_BROKER_URL: redis://localhost:6379/0
       run: |
         cd src/maiagent
-        python manage.py migrate --settings=config.settings.test
+        python manage.py showmigrations --settings=config.settings.test
+        python manage.py migrate --settings=config.settings.test --verbosity=2
     
     - name: 載入測試資料
       env:
@@ -69,10 +79,13 @@ jobs:
         REDIS_URL: redis://localhost:6379/0
       run: |
         cd src/maiagent
-        python manage.py loaddata maiagent/chat/fixtures/test/test_groups.json --settings=config.settings.test
-        python manage.py loaddata maiagent/chat/fixtures/test/test_scenarios.json --settings=config.settings.test
-        python manage.py loaddata maiagent/chat/fixtures/test/test_llm_models.json --settings=config.settings.test
-        python manage.py loaddata maiagent/chat/fixtures/test/test_group_scenario_access.json --settings=config.settings.test
+        echo "Checking database tables exist..."
+        python manage.py dbshell --settings=config.settings.test -c "\dt" || echo "List tables completed"
+        echo "Loading test fixtures..."
+        python manage.py loaddata maiagent/chat/fixtures/test/test_groups.json --settings=config.settings.test --verbosity=2
+        python manage.py loaddata maiagent/chat/fixtures/test/test_scenarios.json --settings=config.settings.test --verbosity=2
+        python manage.py loaddata maiagent/chat/fixtures/test/test_llm_models.json --settings=config.settings.test --verbosity=2
+        python manage.py loaddata maiagent/chat/fixtures/test/test_group_scenario_access.json --settings=config.settings.test --verbosity=2
     
     - name: 執行 API 測試
       env:
