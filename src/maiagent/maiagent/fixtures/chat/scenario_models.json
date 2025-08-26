@@ -1,0 +1,38 @@
+[
+  {
+    "model": "chat.scenariomodel",
+    "pk": "550e8400-e29b-41d4-a716-446655440031",
+    "fields": {
+      "scenario": "550e8400-e29b-41d4-a716-446655440021",
+      "llm_model": "550e8400-e29b-41d4-a716-446655440012",
+      "is_default": true
+    }
+  },
+  {
+    "model": "chat.scenariomodel",
+    "pk": "550e8400-e29b-41d4-a716-446655440032",
+    "fields": {
+      "scenario": "550e8400-e29b-41d4-a716-446655440022",
+      "llm_model": "550e8400-e29b-41d4-a716-446655440011",
+      "is_default": true
+    }
+  },
+  {
+    "model": "chat.scenariomodel",
+    "pk": "550e8400-e29b-41d4-a716-446655440033",
+    "fields": {
+      "scenario": "550e8400-e29b-41d4-a716-446655440023",
+      "llm_model": "550e8400-e29b-41d4-a716-446655440013",
+      "is_default": true
+    }
+  },
+  {
+    "model": "chat.scenariomodel",
+    "pk": "550e8400-e29b-41d4-a716-446655440034",
+    "fields": {
+      "scenario": "550e8400-e29b-41d4-a716-446655440021",
+      "llm_model": "550e8400-e29b-41d4-a716-446655440011",
+      "is_default": false
+    }
+  }
+]

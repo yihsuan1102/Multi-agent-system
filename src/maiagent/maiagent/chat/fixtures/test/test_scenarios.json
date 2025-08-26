@@ -1,0 +1,71 @@
+[
+  {
+    "model": "chat.scenario",
+    "pk": "33333333-3333-3333-3333-333333333333",
+    "fields": {
+      "name": "客服助理測試場景",
+      "config_json": {
+        "prompt": {
+          "system": "你是一個專業的客服助理，請協助客戶解決問題",
+          "user_template": "客戶問題：{user_input}"
+        },
+        "llm": {
+          "provider": "openai",
+          "model": "gpt-4",
+          "temperature": 0.7
+        },
+        "memory": {
+          "type": "buffer",
+          "window": 10
+        }
+      },
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "chat.scenario", 
+    "pk": "44444444-4444-4444-4444-444444444444",
+    "fields": {
+      "name": "技術支援測試場景",
+      "config_json": {
+        "prompt": {
+          "system": "你是一個技術支援專家，請提供技術問題的解決方案",
+          "user_template": "技術問題：{user_input}"
+        },
+        "llm": {
+          "provider": "openai",
+          "model": "gpt-4",
+          "temperature": 0.5
+        },
+        "memory": {
+          "type": "buffer", 
+          "window": 15
+        }
+      },
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "chat.scenario",
+    "pk": "55555555-5555-5555-5555-555555555555",
+    "fields": {
+      "name": "無權限場景",
+      "config_json": {
+        "prompt": {
+          "system": "這是無權限存取的場景",
+          "user_template": "{user_input}"
+        },
+        "llm": {
+          "provider": "openai",
+          "model": "gpt-3.5-turbo",
+          "temperature": 0.8
+        },
+        "memory": {
+          "type": "buffer",
+          "window": 5
+        }
+      },
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  }
+]

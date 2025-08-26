@@ -1,0 +1,104 @@
+[
+  {
+    "model": "users.user",
+    "pk": 1,
+    "fields": {
+      "password": "argon2$argon2id$v=19$m=102400,t=2,p=8$T3ZHNkRmOGc1dVdIVUIxbTRDWEh4Uw$LrrLpha3tv7kynWMiCJXHsi7Qgir2wl2BJG3vggs9c0",
+      "last_login": null,
+      "is_superuser": true,
+      "username": "admin",
+      "email": "admin@maiagent.com",
+      "is_staff": true,
+      "is_active": true,
+      "date_joined": "2024-01-01T00:00:00Z",
+      "name": "系統管理員",
+      "role": "admin",
+      "group": null
+    }
+  },
+  {
+    "model": "users.user",
+    "pk": 2,
+    "fields": {
+      "password": "argon2$argon2id$v=19$m=102400,t=2,p=8$T3ZHNkRmOGc1dVdIVUIxbTRDWEh4Uw$LrrLpha3tv7kynWMiCJXHsi7Qgir2wl2BJG3vggs9c0",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "supervisor_it",
+      "email": "supervisor.it@maiagent.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2024-01-01T00:00:00Z",
+      "name": "IT部門主管",
+      "role": "supervisor",
+      "group": "550e8400-e29b-41d4-a716-446655440001"
+    }
+  },
+  {
+    "model": "users.user",
+    "pk": 3,
+    "fields": {
+      "password": "argon2$argon2id$v=19$m=102400,t=2,p=8$T3ZHNkRmOGc1dVdIVUIxbTRDWEh4Uw$LrrLpha3tv7kynWMiCJXHsi7Qgir2wl2BJG3vggs9c0",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "supervisor_sales",
+      "email": "supervisor.sales@maiagent.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2024-01-01T00:00:00Z",
+      "name": "銷售部門主管",
+      "role": "supervisor",
+      "group": "550e8400-e29b-41d4-a716-446655440002"
+    }
+  },
+  {
+    "model": "users.user",
+    "pk": 4,
+    "fields": {
+      "password": "argon2$argon2id$v=19$m=102400,t=2,p=8$T3ZHNkRmOGc1dVdIVUIxbTRDWEh4Uw$LrrLpha3tv7kynWMiCJXHsi7Qgir2wl2BJG3vggs9c0",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "employee_it_001",
+      "email": "emp.it.001@maiagent.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2024-01-01T00:00:00Z",
+      "name": "張小明",
+      "role": "employee",
+      "group": "550e8400-e29b-41d4-a716-446655440001"
+    }
+  },
+  {
+    "model": "users.user",
+    "pk": 5,
+    "fields": {
+      "password": "argon2$argon2id$v=19$m=102400,t=2,p=8$T3ZHNkRmOGc1dVdIVUIxbTRDWEh4Uw$LrrLpha3tv7kynWMiCJXHsi7Qgir2wl2BJG3vggs9c0",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "employee_sales_001",
+      "email": "emp.sales.001@maiagent.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2024-01-01T00:00:00Z",
+      "name": "李小華",
+      "role": "employee",
+      "group": "550e8400-e29b-41d4-a716-446655440002"
+    }
+  },
+  {
+    "model": "users.user",
+    "pk": 6,
+    "fields": {
+      "password": "argon2$argon2id$v=19$m=102400,t=2,p=8$T3ZHNkRmOGc1dVdIVUIxbTRDWEh4Uw$LrrLpha3tv7kynWMiCJXHsi7Qgir2wl2BJG3vggs9c0",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "employee_cs_001",
+      "email": "emp.cs.001@maiagent.com",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2024-01-01T00:00:00Z",
+      "name": "王小美",
+      "role": "employee",
+      "group": "550e8400-e29b-41d4-a716-446655440003"
+    }
+  }
+]

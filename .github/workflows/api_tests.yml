@@ -1,0 +1,115 @@
+name: API 自動化測試
+
+on:
+  push:
+    branches: [ main, develop, feature/api-* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_maiagent
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      
+      redis:
+        image: redis:6
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: 設置 Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: 安裝系統依賴
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libpq-dev
+    
+    - name: 安裝 Python 依賴
+      run: |
+        cd src/maiagent
+        python -m pip install --upgrade pip
+        pip install -r requirements/local.txt
+        pip install coverage pytest-django
+    
+    - name: 檢查資料庫連線與清理
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_maiagent
+        REDIS_URL: redis://localhost:6379/0
+      run: |
+        cd src/maiagent
+        python manage.py dbshell --settings=config.settings.test -c "SELECT version();" || echo "DB connection test"
+        python manage.py flush --noinput --settings=config.settings.test || echo "DB flush completed"
+    
+    - name: 執行資料庫遷移
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_maiagent
+        REDIS_URL: redis://localhost:6379/0
+        CELERY_BROKER_URL: redis://localhost:6379/0
+      run: |
+        cd src/maiagent
+        python manage.py showmigrations --settings=config.settings.test
+        python manage.py migrate --settings=config.settings.test --verbosity=2
+    
+    - name: 載入測試資料
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_maiagent
+        REDIS_URL: redis://localhost:6379/0
+      run: |
+        cd src/maiagent
+        echo "Checking database tables exist..."
+        python manage.py dbshell --settings=config.settings.test -c "\dt" || echo "List tables completed"
+        echo "Loading test fixtures..."
+        python manage.py loaddata maiagent/chat/fixtures/test/test_groups.json --settings=config.settings.test --verbosity=2
+        python manage.py loaddata maiagent/chat/fixtures/test/test_scenarios.json --settings=config.settings.test --verbosity=2
+        python manage.py loaddata maiagent/chat/fixtures/test/test_llm_models.json --settings=config.settings.test --verbosity=2
+        python manage.py loaddata maiagent/chat/fixtures/test/test_group_scenario_access.json --settings=config.settings.test --verbosity=2
+    
+    - name: 執行 API 測試
+      env:
+        DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_maiagent
+        REDIS_URL: redis://localhost:6379/0
+        CELERY_BROKER_URL: redis://localhost:6379/0
+      run: |
+        cd src/maiagent
+        python run_tests.py --coverage
+    
+    - name: 上傳覆蓋率報告
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./src/maiagent/coverage.xml
+        flags: api_tests
+        name: API 測試覆蓋率
+        fail_ci_if_error: false
+    
+    - name: 生成測試報告
+      if: always()
+      run: |
+        cd src/maiagent
+        echo "## 測試結果報告" >> $GITHUB_STEP_SUMMARY
+        echo "### API 測試狀態：${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+        if [ -f "htmlcov/index.html" ]; then
+          echo "### 覆蓋率報告已生成" >> $GITHUB_STEP_SUMMARY
+        fi
