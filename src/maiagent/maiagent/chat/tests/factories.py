@@ -27,8 +27,7 @@ class UserFactory(django.DjangoModelFactory):
     
     username = factory.Sequence(lambda n: f"testuser{n}")
     email = factory.LazyAttribute(lambda obj: f"{obj.username}@test.com")
-    first_name = factory.Faker("first_name")
-    last_name = factory.Faker("last_name")
+    name = factory.Faker("name")
     is_active = True
     group = factory.SubFactory(GroupFactory)
 

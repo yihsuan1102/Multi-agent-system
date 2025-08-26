@@ -118,57 +118,7 @@ Authorization: Bearer {jwt_token}
 **HTTP方法**：GET  
 **URI**：`/api/v1/conversations/search`
 
-**查詢參數**：
-- `q` (string, 必填): 搜尋關鍵字
-- `page` (integer, 可選, 預設=1): 頁數
-- `page_size` (integer, 可選, 預設=20): 每頁筆數
-- `start_date` (string, 可選): 開始日期 (ISO 8601格式)
-- `end_date` (string, 可選): 結束日期 (ISO 8601格式)
-
-**請求範例**：
-```
-GET /api/v1/conversations/search?q=報價&page=1&page_size=10&start_date=2024-01-01T00:00:00Z
-```
-
-**成功回應 (200 OK)**：
-```json
-{
-  "success": true,
-  "data": {
-    "conversations": [
-      {
-        "session_id": "550e8400-e29b-41d4-a716-446655440000",
-        "title": "產品報價諮詢",
-        "scenario": {
-          "id": "550e8400-e29b-41d4-a716-446655440100",
-          "name": "客服助理",
-          "type": "general",
-          "description": "協助客戶進行產品諮詢"
-        },
-        "started_at": "2024-01-01T10:00:00Z",
-        "last_activity_at": "2024-01-01T10:30:00Z",
-        "status": "Closed",
-        "message_count": 12,
-        "matched_messages": [
-          {
-            "content": "請問貴公司產品的報價如何計算？",
-            "created_at": "2024-01-01T10:05:00Z",
-            "highlight": "請問貴公司產品的<mark>報價</mark>如何計算？"
-          }
-        ]
-      }
-    ],
-    "pagination": {
-      "current_page": 1,
-      "page_size": 10,
-      "total_pages": 5,
-      "total_count": 47
-    }
-  },
-  "message": "搜尋完成",
-  "timestamp": "2024-01-01T12:00:00Z"
-}
-```
+**注意**：此API尚未完整實作，請參考API設計規範。
 
 **錯誤狀態碼**：
 - 400 Bad Request: 查詢參數格式錯誤或未通過 Serializers 驗證
@@ -194,9 +144,12 @@ GET /api/v1/conversations/search?q=報價&page=1&page_size=10&start_date=2024-01
 - `sort_by` (string, 可選, 預設=last_activity_at): 排序欄位
 - `sort_order` (string, 可選, 預設=desc): 排序方向 (asc/desc)
 
-**請求範例**：
+**實際測試案例**：
+
+**成功請求範例**：
 ```
-GET /api/v1/conversations?page=1&page_size=15&status=Active&sort_by=started_at&sort_order=desc
+GET /api/v1/conversations
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 **成功回應 (200 OK)**：
@@ -206,44 +159,76 @@ GET /api/v1/conversations?page=1&page_size=15&status=Active&sort_by=started_at&s
   "data": {
     "conversations": [
       {
-        "id": "550e8400-e29b-41d4-a716-446655440000",
-        "title": "產品諮詢會話",
+        "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+        "title": "會話標題",
         "user": {
-          "id": "550e8400-e29b-41d4-a716-446655440200",
-          "username": "john_doe",
-          "first_name": "John",
-          "last_name": "Doe"
+          "id": "f47ac10b-58cc-4372-a567-0e02b2c3d478",
+          "username": "testuser",
+          "name": "Test User",
+          "first_name": "Test",
+          "last_name": "User"
         },
         "scenario": {
-          "id": "550e8400-e29b-41d4-a716-446655440100",
-          "name": "客服助理",
+          "id": "f47ac10b-58cc-4372-a567-0e02b2c3d477",
+          "name": "測試場景",
           "type": "general",
-          "description": "協助客戶進行產品諮詢"
+          "description": "測試場景描述"
         },
-        "started_at": "2024-01-01T10:00:00Z",
-        "last_activity_at": "2024-01-01T11:30:00Z",
+        "started_at": "2025-08-26T10:00:00Z",
+        "last_activity_at": "2025-08-26T10:30:00Z",
         "status": "Active",
-        "message_count": 8
+        "message_count": 2
       }
     ],
-    "pagination": {
-      "current_page": 1,
-      "page_size": 15,
-      "total_pages": 3,
-      "total_count": 42
-    },
     "filters": {
-      "available_statuses": ["Active", "Waiting", "Replyed", "Closed"],
+      "available_statuses": ["Active", "Waiting", "Replied", "Closed"],
       "available_scenarios": [
         {
-          "id": "550e8400-e29b-41d4-a716-446655440100",
-          "name": "客服助理"
+          "id": "f47ac10b-58cc-4372-a567-0e02b2c3d477",
+          "name": "測試場景"
         }
       ]
     }
   },
-  "message": "會話列表取得成功",
-  "timestamp": "2024-01-01T12:00:00Z"
+  "message": "會話列表取得成功"
+}
+```
+
+**錯誤請求範例**：
+```
+GET /api/v1/conversations?page=invalid
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**錯誤回應 (400 Bad Request)**：
+```json
+{
+  "detail": "查詢參數格式錯誤或未通過 Serializers 驗證"
+}
+```
+
+**無認證請求範例**：
+```
+GET /api/v1/conversations
+```
+
+**錯誤回應 (401 Unauthorized)**：
+```json
+{
+  "detail": "Authentication credentials were not provided."
+}
+```
+
+**無群組權限請求範例**：
+```
+GET /api/v1/conversations
+Authorization: Bearer [無群組用戶的JWT]
+```
+
+**錯誤回應 (403 Forbidden)**：
+```json
+{
+  "detail": "使用者 Role 沒有查看會話的權限"
 }
 ```
 
@@ -271,9 +256,12 @@ GET /api/v1/conversations?page=1&page_size=15&status=Active&sort_by=started_at&s
 - `message_limit` (integer, 可選, 預設=100): 訊息數量限制
 - `message_offset` (integer, 可選, 預設=0): 訊息偏移量
 
-**請求範例**：
+**實際測試案例**：
+
+**成功請求範例**：
 ```
-GET /api/v1/conversations/550e8400-e29b-41d4-a716-446655440000?include_messages=true&message_limit=50
+GET /api/v1/conversations/f47ac10b-58cc-4372-a567-0e02b2c3d479
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
 **成功回應 (200 OK)**：
@@ -282,66 +270,67 @@ GET /api/v1/conversations/550e8400-e29b-41d4-a716-446655440000?include_messages=
   "success": true,
   "data": {
     "session": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "title": "產品諮詢會話",
+      "id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
       "user": {
-        "id": "550e8400-e29b-41d4-a716-446655440200",
-        "username": "john_doe",
-        "first_name": "John",
-        "last_name": "Doe"
+        "id": "f47ac10b-58cc-4372-a567-0e02b2c3d478",
+        "username": "testuser",
+        "name": "Test User",
+        "first_name": "Test",
+        "last_name": "User"
       },
       "scenario": {
-        "id": "550e8400-e29b-41d4-a716-446655440100",
-        "name": "客服助理",
+        "id": "f47ac10b-58cc-4372-a567-0e02b2c3d477",
+        "name": "測試場景",
         "type": "general",
-        "description": "協助客戶進行產品諮詢",
-        "config_json": {
-          "prompt": {
-            "system": "你是一個專業的客服助理",
-            "user_template": "客戶問題：{user_input}"
-          },
-          "llm": {
-            "provider": "openai",
-            "model": "gpt-4",
-            "temperature": 0.7
-          },
-          "memory": {
-            "type": "buffer",
-            "window": 10
-          }
+        "description": "測試場景描述"
+      },
+      "messages": [
+        {
+          "id": "f47ac10b-58cc-4372-a567-0e02b2c3d480",
+          "content": "第一條訊息",
+          "role": "user",
+          "sequence_number": 1,
+          "parent_message_id": null,
+          "created_at": "2025-08-26T10:01:00Z"
+        },
+        {
+          "id": "f47ac10b-58cc-4372-a567-0e02b2c3d481",
+          "content": "第二條訊息",
+          "role": "assistant",
+          "sequence_number": 2,
+          "parent_message_id": "f47ac10b-58cc-4372-a567-0e02b2c3d480",
+          "created_at": "2025-08-26T10:01:30Z"
         }
-      },
-      "started_at": "2024-01-01T10:00:00Z",
-      "last_activity_at": "2024-01-01T11:30:00Z",
-      "status": "Active"
-    },
-    "messages": [
-      {
-        "id": "550e8400-e29b-41d4-a716-446655440001",
-        "content": "您好，我想了解貴公司的產品",
-        "message_type": "user",
-        "sequence_number": 1,
-        "parent_message_id": null,
-        "created_at": "2024-01-01T10:01:00Z"
-      },
-      {
-        "id": "550e8400-e29b-41d4-a716-446655440002",
-        "content": "您好！很高興為您介紹我們的產品。請問您對哪類產品比較感興趣？",
-        "message_type": "assistant",
-        "sequence_number": 2,
-        "parent_message_id": "550e8400-e29b-41d4-a716-446655440001",
-        "created_at": "2024-01-01T10:01:30Z"
-      }
-    ],
-    "message_pagination": {
-      "offset": 0,
-      "limit": 50,
-      "total_count": 8,
-      "has_more": false
+      ]
     }
   },
-  "message": "會話詳情取得成功",
-  "timestamp": "2024-01-01T12:00:00Z"
+  "message": "會話詳情取得成功"
+}
+```
+
+**無效參數請求範例**：
+```
+GET /api/v1/conversations/f47ac10b-58cc-4372-a567-0e02b2c3d479?message_limit=invalid
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**錯誤回應 (400 Bad Request)**：
+```json
+{
+  "detail": "查詢參數格式錯誤或未通過 Serializers 驗證"
+}
+```
+
+**會話不存在請求範例**：
+```
+GET /api/v1/conversations/00000000-0000-0000-0000-000000000000
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**錯誤回應 (404 Not Found)**：
+```json
+{
+  "detail": "會話不存在"
 }
 ```
 
@@ -370,17 +359,37 @@ GET /api/v1/conversations/550e8400-e29b-41d4-a716-446655440000?include_messages=
 Authorization: Bearer {jwt_token}
 ```
 
+**實際測試案例**：
+
+**成功請求範例**：
+```
+DELETE /api/v1/conversations/f47ac10b-58cc-4372-a567-0e02b2c3d479
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
 **成功回應 (200 OK)**：
 ```json
 {
   "success": true,
   "data": {
-    "deleted_session_id": "550e8400-e29b-41d4-a716-446655440000",
-    "deleted_messages_count": 12,
-    "deletion_timestamp": "2024-01-01T12:00:00Z"
+    "deleted_session_id": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+    "deleted_messages_count": 2,
+    "deletion_timestamp": "2025-08-26T12:00:00Z"
   },
-  "message": "會話刪除成功",
-  "timestamp": "2024-01-01T12:00:00Z"
+  "message": "會話刪除成功"
+}
+```
+
+**刪除不存在會話請求範例**：
+```
+DELETE /api/v1/conversations/00000000-0000-0000-0000-000000000000
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**錯誤回應 (404 Not Found)**：
+```json
+{
+  "detail": "會話不存在"
 }
 ```
 
@@ -409,69 +418,7 @@ Content-Type: application/json
 Authorization: Bearer {jwt_token}
 ```
 
-**請求資料格式**：
-```json
-{
-  "name": "更新後的場景名稱",
-  "description": "更新後的場景描述",
-  "type": "general",
-  "config_json": {
-    "prompt": {
-      "system": "你是一個專業的客服助理",
-      "user_template": "客戶問題：{user_input}"
-    },
-    "llm": {
-      "provider": "openai",
-      "model": "gpt-4-turbo",
-      "temperature": 0.8
-    },
-    "memory": {
-      "type": "buffer",
-      "window": 10
-    }
-  }
-}
-```
-
-**請求欄位說明**：
-- `name` (string, 可選): 場景名稱
-- `description` (string, 可選): 場景描述
-- `type` (string, 可選): 場景類型（如 LLMChain、SequentialChain、agent 等）
-- `config_json` (object, 可選): 場景配置，僅包含 `prompt`、`llm`、`memory`
-
-**成功回應 (200 OK)**：
-```json
-{
-  "success": true,
-  "data": {
-    "scenario": {
-      "id": "550e8400-e29b-41d4-a716-446655440100",
-      "name": "更新後的場景名稱",
-      "description": "更新後的場景描述",
-      "type": "general",
-      "config_json": {
-        "prompt": {
-          "system": "你是一個專業的客服助理",
-          "user_template": "客戶問題：{user_input}"
-        },
-        "llm": {
-          "provider": "openai",
-          "model": "gpt-4-turbo",
-          "temperature": 0.8
-        },
-        "memory": {
-          "type": "buffer",
-          "window": 10
-        }
-      },
-      "created_at": "2024-01-01T09:00:00Z",
-      "updated_at": "2024-01-01T12:00:00Z"
-    }
-  },
-  "message": "場景更新成功",
-  "timestamp": "2024-01-01T12:00:00Z"
-}
-```
+**注意**：此API尚未完整實作，請參考API設計規範。
 
 **錯誤狀態碼**：
 - 400 Bad Request: 請求資料格式錯誤或未通過 Serializers 驗證
@@ -496,69 +443,7 @@ Content-Type: application/json
 Authorization: Bearer {jwt_token}
 ```
 
-**請求資料格式**：
-```json
-{
-  "name": "新場景名稱",
-  "description": "新場景描述",
-  "type": "technical_support",
-  "config_json": {
-    "prompt": {
-      "system": "你是一個專業的技術支援專家",
-      "user_template": "技術問題：{user_input}"
-    },
-    "llm": {
-      "provider": "openai",
-      "model": "gpt-4",
-      "temperature": 0.7
-    },
-    "memory": {
-      "type": "buffer",
-      "window": 10
-    }
-  }
-}
-```
-
-**請求欄位說明**：
-- `name` (string, 必填): 場景名稱
-- `description` (string, 可選): 場景描述
-- `type` (string, 可選, 預設="general"): 場景類型
-- `config_json` (object, 必填): 場景配置，僅包含 `prompt`、`llm`、`memory`
-
-**成功回應 (201 Created)**：
-```json
-{
-  "success": true,
-  "data": {
-    "scenario": {
-      "id": "550e8400-e29b-41d4-a716-446655440101",
-      "name": "新場景名稱",
-      "description": "新場景描述",
-      "type": "technical_support",
-      "config_json": {
-        "prompt": {
-          "system": "你是一個專業的技術支援專家",
-          "user_template": "技術問題：{user_input}"
-        },
-        "llm": {
-          "provider": "openai",
-          "model": "gpt-4",
-          "temperature": 0.7
-        },
-        "memory": {
-          "type": "buffer",
-          "window": 10
-        }
-      },
-      "created_at": "2024-01-01T12:00:00Z",
-      "updated_at": "2024-01-01T12:00:00Z"
-    }
-  },
-  "message": "場景建立成功",
-  "timestamp": "2024-01-01T12:00:00Z"
-}
-```
+**注意**：此API尚未完整實作，請參考API設計規範。
 
 **錯誤狀態碼**：
 - 400 Bad Request: 請求資料格式錯誤或未通過 Serializers 驗證
