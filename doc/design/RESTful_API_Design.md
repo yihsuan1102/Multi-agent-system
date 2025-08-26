@@ -8,7 +8,7 @@
 
 | 編號 | 功能描述 | HTTP 方法 | URI |
 |------|----------|-----------|-----|
-| 1 | 提交用戶訊息給LLM | POST | `/api/v1/conversations/{session_id}/messages` |
+| 1 | 提交用戶訊息給LLM | POST | `/api/v1/conversations/messages/` |
 | 2 | 關鍵字搜尋對話 | GET | `/api/v1/conversations/search` |
 | 3 | 顯示所有會話 | GET | `/api/v1/conversations` |
 | 4 | 查詢特定會話 | GET | `/api/v1/conversations/{session_id}` |
@@ -24,40 +24,15 @@
 Authorization: Bearer {jwt_token}
 ```
 
-### 通用回應格式
-```json
-{
-  "success": true,
-  "data": {},
-  "message": "操作成功",
-  "timestamp": "2024-01-01T12:00:00Z"
-}
-```
-
-### 錯誤回應格式
-```json
-{
-  "success": false,
-  "error": {
-    "code": "ERROR_CODE",
-    "message": "錯誤描述",
-    "details": {}
-  },
-  "timestamp": "2024-01-01T12:00:00Z"
-}
-```
 
 ## API 詳細設計
 
 ### 1. 提交用戶訊息給LLM
 
-**目的**：儲存訊息資料再將任務送到 Celery。
+**目的**：儲存訊息資料再將任務送到 Celery。支援自動建立新會話或使用現有會話。
 
 **HTTP方法**：POST  
-**URI**：`/api/v1/conversations/{session_id}/messages`
-
-**路徑參數**：
-- `session_id` (UUID): 會話唯一識別碼
+**URI**：`/api/v1/conversations/messages/`
 
 **請求標頭**：
 ```
@@ -69,51 +44,70 @@ Authorization: Bearer {jwt_token}
 ```json
 {
   "content": "用戶訊息內容",
-  "message_type": "user",
-  "parent_message_id": "550e8400-e29b-41d4-a716-446655440000" // 可選，用於對話分支
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",  // 可選，使用現有會話
+  "scenario_id": "550e8400-e29b-41d4-a716-446655440100", // 可選，建立新會話時必填
+  "llm_model_id": "550e8400-e29b-41d4-a716-446655440200" // 可選
 }
 ```
 
 **請求欄位說明**：
-- `content` (string, 必填): 用戶訊息內容，對應Message表的content欄位
-- `message_type` (string, 必填): 訊息類型，固定為"user"
-- `parent_message_id` (UUID, 可選): 父訊息識別碼，用於建立訊息樹狀結構
+- `content` (string, 必填): 用戶訊息內容
+- `session_id` (UUID, 可選): 現有會話ID，如提供則使用現有會話
+- `scenario_id` (UUID, 條件必填): 場景ID，當 session_id 未提供時為必填，用於建立新會話
+- `llm_model_id` (UUID, 可選): 指定使用的 LLM 模型
+
+**API邏輯**：
+1. 如果提供 `session_id`：驗證會話存在且用戶有權限，直接使用該會話
+2. 如果未提供 `session_id`：使用 `scenario_id` 建立新會話，然後儲存訊息
+3. 儲存成功後發送 Celery 任務處理訊息
+4. 回傳會話ID和訊息詳情
 
 **成功回應 (201 Created)**：
 ```json
 {
-  "success": true,
-  "data": {
-    "user_message": {
-      "id": "550e8400-e29b-41d4-a716-446655440001",
-      "session_id": "550e8400-e29b-41d4-a716-446655440000",
-      "content": "用戶訊息內容",
-      "message_type": "user",
-      "sequence_number": 5,
-      "created_at": "2024-01-01T12:00:00Z"
-    },
-    "assistant_message": {
-      "id": "550e8400-e29b-41d4-a716-446655440002",
-      "session_id": "550e8400-e29b-41d4-a716-446655440000",
-      "content": "AI 回應內容",
-      "message_type": "assistant",
-      "sequence_number": 6,
-      "created_at": "2024-01-01T12:00:05Z"
-    },
-    "session_status": "Replyed"
-  },
-  "message": "訊息發送成功",
-  "timestamp": "2024-01-01T12:00:05Z"
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",
+  "message": {
+    "id": "550e8400-e29b-41d4-a716-446655440001",
+    "role": "user",
+    "content": "用戶訊息內容",
+    "sequence_number": 1,
+    "created_at": "2024-01-01T12:00:00Z"
+  }
 }
 ```
 
-**錯誤狀態碼**：
-- 400 Bad Request: 請求資料格式錯誤或未通過 Serializers 驗證
-- 401 Unauthorized: JWT 憑證無效或未提供身份驗證
-- 403 Forbidden: 使用者 Role 沒有使用該場景的權限
-- 404 Not Found: 會話不存在
-- 500 Internal Server Error: 伺服器遇到未預期的狀況
-- 503 Service Unavailable: 伺服器、資料庫或 Celery 超載，或系統維護中
+**錯誤狀態碼及範例**：
+- **400 Bad Request**: 請求資料格式錯誤
+  ```json
+  {
+    "detail": "建立新對話時需要指定場景 ID"
+  }
+  ```
+- **401 Unauthorized**: JWT 憑證無效或未提供身份驗證
+- **403 Forbidden**: 無場景存取權或會話存取權
+  ```json
+  {
+    "detail": "無場景存取權"
+  }
+  ```
+- **404 Not Found**: 會話或場景不存在
+  ```json
+  {
+    "detail": "會話不存在"
+  }
+  ```
+- **500 Internal Server Error**: 資料庫操作失敗
+  ```json
+  {
+    "detail": "資料庫操作失敗: [具體錯誤訊息]"
+  }
+  ```
+- **503 Service Unavailable**: Celery 服務暫時不可用
+  ```json
+  {
+    "detail": "訊息處理服務暫時不可用: [具體錯誤訊息]"
+  }
+  ```
 
 ---
 

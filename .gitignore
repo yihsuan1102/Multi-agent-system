@@ -115,3 +115,4 @@ note.md
 src/maiagent/maiagent/chat/api/__init__.py
 **/__init__.py
 doc/Docker_Services_Guide.md
+.claude/settings.local.json

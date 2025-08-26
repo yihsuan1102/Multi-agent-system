@@ -23,7 +23,7 @@ from maiagent.users.permissions import (
 )
 
 from .serializers import (
-    CreateMessageSerializer,
+    FlexibleMessageSerializer,
     MessageSerializer,
     ScenarioSerializer,
     ScenarioUpsertSerializer,
@@ -65,43 +65,114 @@ class SessionViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retr
         return Response(serializer.data)
 
     @action(detail=True, methods=["post"], url_path="messages")
-    @require_permission("send_message_to_scenario")
+    @require_permission("send_message_to_scenario")  
     def post_message(self, request: Request, pk: str | None = None) -> Response:
-        session: Session = self.get_object()
-        # 檢查場景存取權（非管理員需檢查群組授權）
-        if not user_has_scenario_access(request.user, session.scenario_id):
-            return Response({"detail": "無場景存取權"}, status=status.HTTP_403_FORBIDDEN)
-        if session.status not in (Session.Status.ACTIVE, Session.Status.REPLYED):
-            return Response(
-                {"detail": "會話狀態不允許提交訊息"}, status=status.HTTP_400_BAD_REQUEST
-            )
+        """
+        彈性訊息提交 API - 支援現有會話或自動建立新會話
+        POST /api/v1/conversations/{session_id}/messages/ (現有會話)
+        POST /api/v1/conversations/messages/ (自動建立)
+        """
+        from django.db import transaction
 
-        serializer = CreateMessageSerializer(data=request.data)
+        # 使用彈性 serializer
+        serializer = FlexibleMessageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        
         content: str = serializer.validated_data["content"]
+        request_session_id = serializer.validated_data.get("session_id")
+        scenario_id = serializer.validated_data.get("scenario_id")
         llm_model_id = serializer.validated_data.get("llm_model_id")
 
-        # 建立使用者訊息
-        message = Message.objects.create(session=session, role=Message.Role.USER, content=content)
-
-        # 使用者可能選擇非預設 model（暫存用途，記錄一筆 LlmModel 使用行為）
-        if llm_model_id:
-            # 確認 LlmModel 存在
-            get_object_or_404(LlmModel, pk=llm_model_id)
-
-        # 更新 Session 狀態為 Waiting
-        session.status = Session.Status.WAITING
-        session.save(update_fields=["status", "last_activity_at"])
-
-        # 送 Celery 任務
         try:
-            process_message.delay(str(session.id), str(message.id))
-        except Exception as exc:  # pragma: no cover - broker 失敗時回傳
+            with transaction.atomic():
+                # 案例1：URL 中有 pk (session_id) - 使用現有會話
+                if pk:
+                    session: Session = self.get_object()
+                    # 檢查場景存取權
+                    if not user_has_scenario_access(request.user, session.scenario_id):
+                        return Response({"detail": "無場景存取權"}, status=status.HTTP_403_FORBIDDEN)
+                    # 檢查會話狀態
+                    if session.status not in (Session.Status.ACTIVE, Session.Status.REPLYED):
+                        return Response(
+                            {"detail": "會話狀態不允許提交訊息"}, status=status.HTTP_400_BAD_REQUEST
+                        )
+
+                # 案例2：請求體中有 session_id - 使用指定會話
+                elif request_session_id:
+                    try:
+                        session = get_object_or_404(Session, pk=request_session_id)
+                        # 檢查使用者權限
+                        if not filter_sessions_for_user(Session.objects.filter(pk=session.pk), request.user).exists():
+                            return Response(
+                                {"detail": "無權限存取該會話"}, 
+                                status=status.HTTP_403_FORBIDDEN
+                            )
+                        # 檢查場景存取權
+                        if not user_has_scenario_access(request.user, session.scenario_id):
+                            return Response({"detail": "無場景存取權"}, status=status.HTTP_403_FORBIDDEN)
+                        # 檢查會話狀態
+                        if session.status not in (Session.Status.ACTIVE, Session.Status.REPLYED):
+                            return Response(
+                                {"detail": "會話狀態不允許提交訊息"}, status=status.HTTP_400_BAD_REQUEST
+                            )
+                    except Session.DoesNotExist:
+                        return Response({"detail": "會話不存在"}, status=status.HTTP_404_NOT_FOUND)
+
+                # 案例3：建立新會話
+                else:
+                    if not scenario_id:
+                        return Response(
+                            {"detail": "建立新對話時需要指定場景 ID"}, 
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    
+                    scenario = get_object_or_404(Scenario, pk=scenario_id)
+                    # 檢查場景存取權
+                    if not user_has_scenario_access(request.user, scenario_id):
+                        return Response({"detail": "無場景存取權"}, status=status.HTTP_403_FORBIDDEN)
+                    
+                    # 建立新會話
+                    session = Session.objects.create(
+                        user=request.user,
+                        scenario=scenario,
+                        status=Session.Status.ACTIVE
+                    )
+
+                # 建立使用者訊息
+                message = Message.objects.create(
+                    session=session, 
+                    role=Message.Role.USER, 
+                    content=content
+                )
+
+                # 驗證 LLM model（如果有提供）
+                if llm_model_id:
+                    get_object_or_404(LlmModel, pk=llm_model_id)
+
+                # 更新 Session 狀態為 Waiting
+                session.status = Session.Status.WAITING
+                session.save(update_fields=["status", "last_activity_at"])
+
+        except Exception as exc:
             return Response(
-                {"detail": f"Broker 任務派送失敗: {exc}"}, status=status.HTTP_503_SERVICE_UNAVAILABLE
+                {"detail": f"資料庫操作失敗: {exc}"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-        return Response(MessageSerializer(message).data, status=status.HTTP_201_CREATED)
+        # 發送 Celery 任務
+        try:
+            process_message.delay(str(session.id), str(message.id))
+        except Exception as exc:
+            return Response(
+                {"detail": f"訊息處理服務暫時不可用: {exc}"}, 
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+
+        # 回傳成功回應，包含 session_id（對新建立的會話特別有用）
+        return Response({
+            "session_id": str(session.id),
+            "message": MessageSerializer(message).data
+        }, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=["get"], url_path="polling")
     @require_permission("use_scenario")
@@ -181,6 +252,15 @@ class SessionViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retr
             for item in hits
         ]
         return Response({"results": results}, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=["post"], url_path="messages")
+    @require_permission("send_message_to_scenario")
+    def post_message_no_session(self, request: Request) -> Response:
+        """
+        處理無 session_id 的訊息提交 - 路由到 post_message
+        POST /api/v1/conversations/messages/
+        """
+        return self.post_message(request, pk=None)
 
 
 class ScenarioViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.UpdateModelMixin):
