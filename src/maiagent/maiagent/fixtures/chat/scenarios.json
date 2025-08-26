@@ -1,0 +1,59 @@
+[
+  {
+    "model": "chat.scenario",
+    "pk": "550e8400-e29b-41d4-a716-446655440021",
+    "fields": {
+      "name": "客服助手",
+      "config_json": {
+        "prompt": "你是一個專業的客服助手，請用友善、耐心的態度回答客戶問題。",
+        "llm": {
+          "temperature": 0.3,
+          "max_tokens": 1000
+        },
+        "memory": {
+          "type": "conversation",
+          "max_turns": 10
+        }
+      },
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "chat.scenario",
+    "pk": "550e8400-e29b-41d4-a716-446655440022",
+    "fields": {
+      "name": "技術支援",
+      "config_json": {
+        "prompt": "你是一個技術支援專家，專門處理系統問題和技術諮詢。請提供專業且詳細的技術解決方案。",
+        "llm": {
+          "temperature": 0.2,
+          "max_tokens": 2000
+        },
+        "memory": {
+          "type": "conversation",
+          "max_turns": 15
+        }
+      },
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "chat.scenario",
+    "pk": "550e8400-e29b-41d4-a716-446655440023",
+    "fields": {
+      "name": "銷售顧問",
+      "config_json": {
+        "prompt": "你是一個專業的銷售顧問，能夠了解客戶需求並推薦合適的產品解決方案。",
+        "llm": {
+          "temperature": 0.7,
+          "max_tokens": 1500
+        },
+        "memory": {
+          "type": "conversation",
+          "max_turns": 12
+        }
+      },
+      "created_at": "2024-01-01T00:00:00Z"
+    }
+  }
+]
