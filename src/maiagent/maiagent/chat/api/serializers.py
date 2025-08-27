@@ -190,3 +190,16 @@ class FlexibleMessageSerializer(serializers.Serializer[Any]):
         return attrs
 
 
+class ScenarioUpdateSerializer(serializers.Serializer[Any]):
+    """更新場景設定的 serializer"""
+    model_id = serializers.UUIDField(required=True)
+
+    def validate_model_id(self, value):
+        """驗證 model_id 是否存在"""
+        try:
+            LlmModel.objects.get(pk=value)
+        except LlmModel.DoesNotExist:
+            raise serializers.ValidationError("指定的模型不存在")
+        return value
+
+

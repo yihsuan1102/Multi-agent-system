@@ -1,0 +1,38 @@
+[
+  {
+    "model": "chat.session",
+    "pk": "550e8400-e29b-41d4-a716-446655440054",
+    "fields": {
+      "user": 3,
+      "scenario": "550e8400-e29b-41d4-a716-446655440023",
+      "title": "客戶關係管理討論",
+      "status": "Active",
+      "created_at": "2024-01-15T10:30:00+08:00",
+      "last_activity_at": "2024-01-15T15:20:00+08:00"
+    }
+  },
+  {
+    "model": "chat.session", 
+    "pk": "550e8400-e29b-41d4-a716-446655440055",
+    "fields": {
+      "user": 3,
+      "scenario": "550e8400-e29b-41d4-a716-446655440021",
+      "title": "處理客戶投訴",
+      "status": "Closed",
+      "created_at": "2024-01-14T14:00:00+08:00",
+      "last_activity_at": "2024-01-14T16:30:00+08:00"
+    }
+  },
+  {
+    "model": "chat.session",
+    "pk": "550e8400-e29b-41d4-a716-446655440056", 
+    "fields": {
+      "user": 2,
+      "scenario": "550e8400-e29b-41d4-a716-446655440022",
+      "title": "系統架構檢討會議",
+      "status": "Active",
+      "created_at": "2024-01-16T09:00:00+08:00",
+      "last_activity_at": "2024-01-16T11:45:00+08:00"
+    }
+  }
+]

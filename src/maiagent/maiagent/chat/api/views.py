@@ -26,10 +26,12 @@ from maiagent.users.permissions import (
 )
 
 from .serializers import (
+    CreateMessageSerializer,
     FlexibleMessageSerializer,
     MessageSerializer,
     ScenarioSerializer,
     ScenarioUpsertSerializer,
+    ScenarioUpdateSerializer,
     SessionDetailSerializer,
     SessionListSerializer,
 )
@@ -77,14 +79,7 @@ class SessionViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retr
             # 驗證查詢參數
             self._validate_list_query_params(request)
             
-            # 檢查用戶是否有查看會話的權限
-            if not hasattr(request.user, 'group') or not request.user.group:
-                return Response(
-                    {"detail": "使用者 Role 沒有查看會話的權限"},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-            
-            # 獲取分頁查詢集
+            # 獲取分頁查詢集 (權限檢查由 filter_sessions_for_user 處理)
             queryset = self.get_queryset()
             page = self.paginate_queryset(queryset)
             
@@ -379,19 +374,27 @@ class SessionViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retr
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
-    @action(detail=True, methods=["post"], url_path="messages")
-    @require_permission("send_message_to_scenario")  
-    def post_message(self, request: Request, pk: str | None = None) -> Response:
+    def post_message(self, request: Request) -> Response:
         """
         彈性訊息提交 API - 支援現有會話或自動建立新會話
-        POST /api/v1/conversations/{session_id}/messages/ (現有會話)
-        POST /api/v1/conversations/messages/ (自動建立)
+        POST /api/v1/conversations/messages/
+        - 包含 session_id: 使用現有會話
+        - 包含 scenario_id: 建立新會話
         """
         from django.db import transaction
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        logger.info(f"post_message called with request.data={request.data}")
 
-        # 使用彈性 serializer
+        # 統一使用 FlexibleMessageSerializer 進行完整驗證
         serializer = FlexibleMessageSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+            
+        if not serializer.is_valid():
+            logger.error(f"Serializer validation failed: {serializer.errors}")
+            return Response({"detail": "請求資料格式錯誤", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+        
+        logger.info(f"Serializer validated successfully: {serializer.validated_data}")
         
         content: str = serializer.validated_data["content"]
         request_session_id = serializer.validated_data.get("session_id")
@@ -400,20 +403,8 @@ class SessionViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retr
 
         try:
             with transaction.atomic():
-                # 案例1：URL 中有 pk (session_id) - 使用現有會話
-                if pk:
-                    session: Session = self.get_object()
-                    # 檢查場景存取權
-                    if not user_has_scenario_access(request.user, session.scenario_id):
-                        return Response({"detail": "無場景存取權"}, status=status.HTTP_403_FORBIDDEN)
-                    # 檢查會話狀態
-                    if session.status not in (Session.Status.ACTIVE, Session.Status.REPLYED):
-                        return Response(
-                            {"detail": "會話狀態不允許提交訊息"}, status=status.HTTP_400_BAD_REQUEST
-                        )
-
-                # 案例2：請求體中有 session_id - 使用指定會話
-                elif request_session_id:
+                # 案例1：請求體中有 session_id - 使用指定會話
+                if request_session_id:
                     try:
                         session = get_object_or_404(Session, pk=request_session_id)
                         # 檢查使用者權限
@@ -433,7 +424,7 @@ class SessionViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retr
                     except Session.DoesNotExist:
                         return Response({"detail": "會話不存在"}, status=status.HTTP_404_NOT_FOUND)
 
-                # 案例3：建立新會話
+                # 案例2：建立新會話
                 else:
                     if not scenario_id:
                         return Response(
@@ -454,19 +445,25 @@ class SessionViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retr
                     )
 
                 # 建立使用者訊息
+                logger.info(f"Creating message: session={session.id}, content={content[:50]}")
                 message = Message.objects.create(
                     session=session, 
                     role=Message.Role.USER, 
                     content=content
                 )
+                logger.info(f"Message created successfully: id={message.id}, sequence={message.sequence_number}")
 
                 # 驗證 LLM model（如果有提供）
                 if llm_model_id:
-                    get_object_or_404(LlmModel, pk=llm_model_id)
+                    logger.info(f"Validating LLM model: {llm_model_id}")
+                    llm_model = get_object_or_404(LlmModel, pk=llm_model_id)
+                    logger.info(f"LLM model validated: {llm_model.provider}:{llm_model.name}")
 
                 # 更新 Session 狀態為 Waiting
+                logger.info(f"Updating session status to WAITING")
                 session.status = Session.Status.WAITING
                 session.save(update_fields=["status", "last_activity_at"])
+                logger.info(f"Session updated successfully")
 
         except Exception as exc:
             return Response(
@@ -575,7 +572,7 @@ class SessionViewSet(viewsets.GenericViewSet, mixins.ListModelMixin, mixins.Retr
         處理無 session_id 的訊息提交 - 路由到 post_message
         POST /api/v1/conversations/messages/
         """
-        return self.post_message(request, pk=None)
+        return self.post_message(request)
 
 
 class ScenarioViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.UpdateModelMixin):
@@ -587,5 +584,133 @@ class ScenarioViewSet(viewsets.GenericViewSet, mixins.CreateModelMixin, mixins.U
         if self.action in ("create", "update", "partial_update"):
             return ScenarioUpsertSerializer
         return ScenarioSerializer
+    
+    @action(detail=True, methods=["get"], url_path="models", permission_classes=[])
+    def get_scenario_models(self, request: Request, pk: str | None = None) -> Response:
+        """
+        GET /api/v1/scenarios/{scenario_id}/models/
+        獲取特定場景的可用 LLM 模型
+        """
+        try:
+            scenario: Scenario = self.get_object()
+            
+            # 獲取此場景關聯的所有 LLM 模型
+            from maiagent.chat.models import ScenarioModel
+            scenario_models = ScenarioModel.objects.filter(
+                scenario=scenario
+            ).select_related('llm_model').order_by('-is_default', 'llm_model__provider', 'llm_model__name')
+            
+            models_data = []
+            for sm in scenario_models:
+                model = sm.llm_model
+                models_data.append({
+                    "id": str(model.id),
+                    "provider": model.provider,
+                    "name": model.name,
+                    "display_name": f"{model.provider.title()} {model.name}",
+                    "is_default": sm.is_default,
+                    "params": model.params
+                })
+            
+            return Response({
+                "success": True,
+                "data": {
+                    "scenario_id": str(scenario.id),
+                    "scenario_name": scenario.name,
+                    "models": models_data
+                },
+                "message": "場景模型列表取得成功",
+                "timestamp": timezone.now().isoformat()
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return Response({
+                "detail": "取得場景模型時發生錯誤"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def update(self, request: Request, pk: str | None = None) -> Response:
+        """
+        PUT /api/v1/scenarios/{scenario_id}
+        更新場景設定 - 修改該 Scenario 對應的 ScenarioModel 之 model_id
+        權限：admin、主管
+        """
+        try:
+            # 獲取場景物件
+            scenario: Scenario = self.get_object()
+            
+            # 驗證請求資料
+            serializer = ScenarioUpdateSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response({
+                    "success": False,
+                    "detail": "請求資料格式錯誤",
+                    "errors": serializer.errors
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            model_id = serializer.validated_data["model_id"]
+            
+            # 獲取指定的 LLM 模型
+            try:
+                from maiagent.chat.models import LlmModel, ScenarioModel
+                llm_model = get_object_or_404(LlmModel, pk=model_id)
+            except LlmModel.DoesNotExist:
+                return Response({
+                    "success": False,
+                    "detail": "指定的模型不存在"
+                }, status=status.HTTP_404_NOT_FOUND)
+
+            # 檢查或建立 ScenarioModel 記錄
+            scenario_model, created = ScenarioModel.objects.get_or_create(
+                scenario=scenario,
+                llm_model=llm_model,
+                defaults={'is_default': True}
+            )
+            
+            # 如果該組合已存在，更新為預設
+            if not created and not scenario_model.is_default:
+                # 將其他模型設為非預設
+                ScenarioModel.objects.filter(
+                    scenario=scenario,
+                    is_default=True
+                ).update(is_default=False)
+                
+                # 設定目前模型為預設
+                scenario_model.is_default = True
+                scenario_model.save()
+
+            elif created:
+                # 新建立的模型，將其他模型設為非預設
+                ScenarioModel.objects.filter(
+                    scenario=scenario,
+                    is_default=True
+                ).exclude(pk=scenario_model.pk).update(is_default=False)
+
+            return Response({
+                "success": True,
+                "data": {
+                    "scenario_id": str(scenario.id),
+                    "scenario_name": scenario.name,
+                    "updated_model": {
+                        "id": str(llm_model.id),
+                        "provider": llm_model.provider,
+                        "name": llm_model.name,
+                        "display_name": f"{llm_model.provider.title()} {llm_model.name}",
+                        "is_default": True
+                    }
+                },
+                "message": "場景設定更新成功",
+                "timestamp": timezone.now().isoformat()
+            }, status=status.HTTP_200_OK)
+
+        except PermissionDenied as e:
+            return Response({
+                "success": False,
+                "detail": str(e) or "權限不足"
+            }, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            return Response({
+                "success": False,
+                "detail": "伺服器遇到未預期的狀況"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
