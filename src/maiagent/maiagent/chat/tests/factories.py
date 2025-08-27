@@ -3,7 +3,7 @@ import uuid
 from django.contrib.auth import get_user_model
 from factory import django
 
-from maiagent.chat.models import Group, LlmModel, Message, Scenario, Session
+from maiagent.chat.models import Group, GroupScenarioAccess, LlmModel, Message, Scenario, ScenarioModel, Session
 
 User = get_user_model()
 
@@ -92,3 +92,26 @@ class MessageFactory(django.DjangoModelFactory):
     session = factory.SubFactory(SessionFactory)
     role = Message.Role.USER
     content = factory.Faker("text", max_nb_chars=200)
+
+
+class ScenarioModelFactory(django.DjangoModelFactory):
+    """測試用場景模型工廠"""
+    
+    class Meta:
+        model = ScenarioModel
+    
+    id = factory.LazyFunction(uuid.uuid4)
+    scenario = factory.SubFactory(ScenarioFactory)
+    llm_model = factory.SubFactory(LlmModelFactory)
+    is_default = False
+
+
+class GroupScenarioAccessFactory(django.DjangoModelFactory):
+    """測試用群組場景存取權限工廠"""
+    
+    class Meta:
+        model = GroupScenarioAccess
+    
+    id = factory.LazyFunction(uuid.uuid4)
+    group = factory.SubFactory(GroupFactory)
+    scenario = factory.SubFactory(ScenarioFactory)

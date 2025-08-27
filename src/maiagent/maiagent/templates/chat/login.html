@@ -1,0 +1,137 @@
+{% extends "allauth/layouts/entrance.html" %}
+{% load i18n %}
+
+{% block head_title %}{% trans "Chat Login" %}{% endblock %}
+
+{% block content %}
+<div class="card border-0 shadow-lg">
+  <div class="card-header bg-primary text-white text-center">
+    <h3 class="mb-0">
+      <i class="fas fa-comments me-2"></i>
+      {% trans "MaiAgent Chat" %}
+    </h3>
+  </div>
+  <div class="card-body p-4">
+    <form method="post" id="login-form">
+      {% csrf_token %}
+      <div class="mb-3">
+        <label for="id_username" class="form-label fw-bold">
+          <i class="fas fa-user me-2"></i>{% trans "Username" %}
+        </label>
+        <input type="text" 
+               class="form-control form-control-lg" 
+               id="id_username" 
+               name="username" 
+               required 
+               placeholder="{% trans 'Enter your username' %}">
+      </div>
+      
+      <div class="mb-4">
+        <label for="id_password" class="form-label fw-bold">
+          <i class="fas fa-lock me-2"></i>{% trans "Password" %}
+        </label>
+        <input type="password" 
+               class="form-control form-control-lg" 
+               id="id_password" 
+               name="password" 
+               required 
+               placeholder="{% trans 'Enter your password' %}">
+      </div>
+      
+      <div class="d-grid gap-2">
+        <button type="submit" class="btn btn-primary btn-lg">
+          <i class="fas fa-sign-in-alt me-2"></i>
+          {% trans "Login to Chat" %}
+        </button>
+      </div>
+    </form>
+    
+    <div id="error-message" class="alert alert-danger mt-3 d-none" role="alert">
+      <i class="fas fa-exclamation-triangle me-2"></i>
+      <span id="error-text"></span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block inline_javascript %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const loginForm = document.getElementById('login-form');
+    const errorMessage = document.getElementById('error-message');
+    const errorText = document.getElementById('error-text');
+    
+    loginForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(loginForm);
+        const username = formData.get('username');
+        const password = formData.get('password');
+        
+        try {
+            // Show loading state
+            const submitButton = loginForm.querySelector('button[type="submit"]');
+            const originalText = submitButton.innerHTML;
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>登入中...';
+            
+            const response = await fetch('/api/token/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                },
+                body: JSON.stringify({
+                    username: username,
+                    password: password
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Store JWT tokens
+                localStorage.setItem('access_token', data.access);
+                localStorage.setItem('refresh_token', data.refresh);
+                
+                // Show success message
+                submitButton.innerHTML = '<i class="fas fa-check me-2"></i>登入成功！';
+                submitButton.className = 'btn btn-success btn-lg';
+                
+                // Redirect to chat room after short delay
+                setTimeout(() => {
+                    window.location.href = 'http://localhost:8000/chat/';
+                }, 1000);
+            } else {
+                // Reset button state
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalText;
+                
+                const errorData = await response.json();
+                if (response.status === 401) {
+                    showError('登入失敗：用戶名或密碼錯誤');
+                } else {
+                    showError('登入失敗：' + (errorData.detail || '請檢查用戶名和密碼'));
+                }
+            }
+        } catch (error) {
+            // Reset button state
+            const submitButton = loginForm.querySelector('button[type="submit"]');
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="fas fa-sign-in-alt me-2"></i>{% trans "Login to Chat" %}';
+            
+            showError('網路連接錯誤，請檢查網路連線並重試');
+            console.error('Login error:', error);
+        }
+    });
+    
+    function showError(message) {
+        errorText.textContent = message;
+        errorMessage.classList.remove('d-none');
+        setTimeout(() => {
+            errorMessage.classList.add('d-none');
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}

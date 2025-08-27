@@ -260,10 +260,11 @@ class CoreAPIErrorHandlingTestCase(APITestCase):
         
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    def test_api3_error_403_no_group(self):
-        """測試 API 3: 403 錯誤 - 無群組權限"""
-        # 建立沒有群組的使用者
-        user_without_group = UserFactory(group=None)
+    def test_api3_success_no_group_employee(self):
+        """測試 API 3: 無群組員工可以查看自己的會話"""
+        # 建立沒有群組的員工使用者
+        user_without_group = UserFactory(group=None, role='employee')
+        assign_role(user_without_group, 'employee')
         refresh = RefreshToken.for_user(user_without_group)
         access_token = str(refresh.access_token)
         
@@ -272,9 +273,51 @@ class CoreAPIErrorHandlingTestCase(APITestCase):
         url = reverse('api:conversation-list')
         response = self.client.get(url)
         
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        # 無群組的員工應該能成功取得會話列表（但只能看到自己的）
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         data = response.json()
-        self.assertEqual(data['detail'], '使用者 Role 沒有查看會話的權限')
+        self.assertTrue(data['success'])
+        self.assertEqual(data['message'], '會話列表取得成功')
+
+    def test_api3_admin_can_view_all_conversations(self):
+        """測試 API 3: Admin 用戶可以查看所有會話"""
+        # 建立 admin 用戶（group=None）
+        admin_user = UserFactory(group=None, role='admin')
+        assign_role(admin_user, 'admin')
+        
+        # 建立第一個群組的會話
+        group1 = GroupFactory()
+        user1 = UserFactory(group=group1, role='employee')
+        scenario1 = ScenarioFactory()
+        GroupScenarioAccess.objects.create(group=group1, scenario=scenario1)
+        session1 = SessionFactory(user=user1, scenario=scenario1)
+        
+        # 建立第二個群組的會話
+        group2 = GroupFactory()
+        user2 = UserFactory(group=group2, role='employee')
+        scenario2 = ScenarioFactory()
+        GroupScenarioAccess.objects.create(group=group2, scenario=scenario2)
+        session2 = SessionFactory(user=user2, scenario=scenario2)
+        
+        # 使用 admin 身份進行認證
+        refresh = RefreshToken.for_user(admin_user)
+        access_token = str(refresh.access_token)
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+        
+        url = reverse('api:conversation-list')
+        response = self.client.get(url)
+        
+        # Admin 應該能成功取得所有會話
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['message'], '會話列表取得成功')
+        
+        # 驗證 admin 能看到所有會話（包含不同群組的）
+        conversations = data['data']['conversations']
+        session_ids = [conv['id'] for conv in conversations]
+        self.assertIn(str(session1.id), session_ids)  # 群組1的會話
+        self.assertIn(str(session2.id), session_ids)  # 群組2的會話
 
     def test_api4_error_404_session_not_found(self):
         """測試 API 4: 404 錯誤 - 會話不存在"""

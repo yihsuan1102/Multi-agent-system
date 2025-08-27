@@ -1,0 +1,1434 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Chat Room" %}{% endblock %}
+
+{% block bodyclass %}chat-room{% endblock %}
+
+{% block css %}
+{{ block.super }}
+<style>
+.chat-container {
+    height: calc(100vh - 120px);
+    display: flex;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.conversation-sidebar {
+    width: 320px;
+    background: #f8f9fa;
+    border-right: 1px solid #dee2e6;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar-header {
+    padding: 1rem;
+    background: #fff;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.conversation-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.5rem;
+}
+
+.conversation-item {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.conversation-item:hover {
+    background: #e9ecef;
+}
+
+.conversation-item.active {
+    background: #007bff;
+    color: white;
+    border-color: #0056b3;
+}
+
+.conversation-title {
+    font-weight: 500;
+    font-size: 0.9rem;
+    margin-bottom: 0.25rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.conversation-meta {
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+.chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+}
+
+.chat-header {
+    padding: 1rem;
+    background: #fff;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.header-left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.chat-header h5 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.scenario-selector {
+    min-width: 250px;
+    max-width: 300px;
+}
+
+.llm-selector {
+    min-width: 200px;
+    align-self: flex-end;
+}
+
+.llm-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-end;
+}
+
+.messages-container {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
+    background: #f8f9fa;
+}
+
+.message {
+    margin-bottom: 1rem;
+    display: flex;
+}
+
+.message.user {
+    justify-content: flex-end;
+}
+
+.message.assistant {
+    justify-content: flex-start;
+}
+
+.message-bubble {
+    max-width: 70%;
+    padding: 0.75rem 1rem;
+    border-radius: 18px;
+    word-wrap: break-word;
+}
+
+.message.user .message-bubble {
+    background: #007bff;
+    color: white;
+}
+
+.message.assistant .message-bubble {
+    background: #e9ecef;
+    color: #333;
+}
+
+.message-input-area {
+    padding: 1rem;
+    background: #fff;
+    border-top: 1px solid #dee2e6;
+}
+
+.input-group-custom {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.message-input {
+    flex: 1;
+    resize: none;
+    min-height: 50px;
+    max-height: 150px;
+}
+
+.send-button {
+    align-self: flex-end;
+    min-width: 80px;
+}
+
+.loading-indicator {
+    text-align: center;
+    padding: 1rem;
+    color: #6c757d;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 2rem;
+    color: #6c757d;
+}
+
+@media (max-width: 768px) {
+    .conversation-sidebar {
+        width: 280px;
+    }
+    
+    .chat-container {
+        height: calc(100vh - 100px);
+    }
+    
+    .chat-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+    }
+    
+    .header-left {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .scenario-selector {
+        min-width: auto;
+        max-width: none;
+    }
+    
+    .llm-controls {
+        flex-direction: row;
+        align-items: stretch;
+    }
+    
+    .llm-selector {
+        min-width: auto;
+        flex: 1;
+    }
+}
+</style>
+{% endblock %}
+
+{% block main %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="chat-container">
+                <!-- Conversation Sidebar -->
+                <div class="conversation-sidebar">
+                    <div class="sidebar-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-comments me-2"></i>
+                            {% trans "Conversations" %}
+                        </h6>
+                    </div>
+                    <div class="conversation-list" id="conversation-list">
+                        <div class="loading-indicator">
+                            <i class="fas fa-spinner fa-spin me-2"></i>
+                            {% trans "Loading conversations..." %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Area -->
+                <div class="chat-area">
+                    <div class="chat-header">
+                        <div class="header-left">
+                            <h5 id="current-session-title">{% trans "Select a scenario" %}</h5>
+                            <select class="form-select scenario-selector" id="scenario-selector">
+                                <option value="">{% trans "Select a scenario" %}</option>
+                            </select>
+                        </div>
+                        <div class="llm-controls">
+                            <select class="form-select llm-selector" id="llm-model-selector" disabled>
+                                <option value="">{% trans "Select LLM Model" %}</option>
+                            </select>
+                            <button class="btn btn-outline-primary" id="update-scenario-button" disabled title="{% trans 'Update scenario model' %}">
+                                {% trans "Update" %}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="messages-container" id="messages-container">
+                        <div class="empty-state">
+                            <i class="fas fa-comment-dots fa-3x mb-3"></i>
+                            <p class="mb-0">{% trans "Select a scenario to start chatting" %}</p>
+                        </div>
+                    </div>
+
+                    <div class="message-input-area">
+                        <div class="input-group-custom">
+                            <textarea class="form-control message-input" 
+                                      id="message-input" 
+                                      placeholder="{% trans 'Type your message...' %}"
+                                      rows="2"></textarea>
+                            <button class="btn btn-primary send-button" 
+                                    id="send-button" 
+                                    type="button">
+                                SEND
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block inline_javascript %}
+<script>
+class ChatApp {
+    constructor() {
+        console.log('🚀 ChatApp constructor called');
+        this.currentSessionId = null;
+        this.accessToken = localStorage.getItem('access_token');
+        
+        console.log('🔑 Access token check:', this.accessToken ? 'FOUND' : 'NOT FOUND');
+        
+        if (!this.accessToken) {
+            console.warn('❌ No access token found, redirecting to login...');
+            window.location.href = '/chat/login/';
+            return;
+        }
+        
+        console.log('✅ Access token found, proceeding with initialization');
+        console.log('🔧 ChatApp initializing...');
+        
+        this.initializeElements();
+        this.setupEventListeners();
+        
+        console.log('📞 About to load conversations...');
+        this.loadConversations();
+        
+        console.log('🎯 About to load scenarios...');
+        this.loadScenarios();
+        
+        console.log('🤖 About to load LLM models...');
+        this.loadLLMModels();
+        
+        console.log('✅ ChatApp initialized successfully');
+    }
+    
+    initializeElements() {
+        console.log('Initializing elements...');
+        this.conversationList = document.getElementById('conversation-list');
+        this.messagesContainer = document.getElementById('messages-container');
+        this.messageInput = document.getElementById('message-input');
+        this.sendButton = document.getElementById('send-button');
+        this.llmSelector = document.getElementById('llm-model-selector');
+        this.scenarioSelector = document.getElementById('scenario-selector');
+        this.sessionTitle = document.getElementById('current-session-title');
+        this.updateScenarioButton = document.getElementById('update-scenario-button');
+        
+        // Check if all elements are found
+        if (!this.conversationList) console.error('conversation-list not found');
+        if (!this.messagesContainer) console.error('messages-container not found');
+        if (!this.messageInput) console.error('message-input not found');
+        if (!this.sendButton) console.error('send-button not found');
+        if (!this.llmSelector) console.error('llm-model-selector not found');
+        if (!this.scenarioSelector) console.error('scenario-selector not found');
+        if (!this.sessionTitle) console.error('current-session-title not found');
+        if (!this.updateScenarioButton) console.error('update-scenario-button not found');
+        
+        console.log('Elements initialized:', {
+            conversationList: !!this.conversationList,
+            messagesContainer: !!this.messagesContainer,
+            messageInput: !!this.messageInput,
+            sendButton: !!this.sendButton,
+            llmSelector: !!this.llmSelector,
+            scenarioSelector: !!this.scenarioSelector,
+            sessionTitle: !!this.sessionTitle,
+            updateScenarioButton: !!this.updateScenarioButton
+        });
+    }
+    
+    setupEventListeners() {
+        console.log('Setting up event listeners...');
+        
+        if (this.sendButton) {
+            this.sendButton.addEventListener('click', () => {
+                console.log('Send button clicked');
+                this.sendMessage();
+            });
+            console.log('Send button listener added');
+        }
+        
+        if (this.messageInput) {
+            this.messageInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    console.log('Enter key pressed, sending message');
+                    this.sendMessage();
+                }
+            });
+            console.log('Message input listener added');
+        }
+        
+        // Add scenario selector listener
+        if (this.scenarioSelector) {
+            this.scenarioSelector.addEventListener('change', (e) => {
+                const selectedScenarioId = e.target.value;
+                console.log('Scenario selection changed:', selectedScenarioId);
+                this.onScenarioSelected(selectedScenarioId);
+            });
+            console.log('Scenario selector listener added');
+        }
+        
+        // Add update scenario button listener
+        if (this.updateScenarioButton) {
+            this.updateScenarioButton.addEventListener('click', () => {
+                console.log('Update scenario button clicked');
+                this.updateScenarioModel();
+            });
+            console.log('Update scenario button listener added');
+        }
+        
+        // Enable input and button initially - allow creating new conversations
+        if (this.messageInput) {
+            this.messageInput.disabled = false;
+            this.messageInput.placeholder = '請選擇場景或現有會話...';
+            console.log('Message input enabled');
+        }
+        if (this.sendButton) {
+            this.sendButton.disabled = false;
+            console.log('Send button enabled');
+        }
+        
+        console.log('Event listeners setup complete');
+    }
+    
+    async makeAuthenticatedRequest(url, options = {}) {
+        const headers = {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json',
+            ...options.headers
+        };
+        
+        const response = await fetch(url, { ...options, headers });
+        
+        if (response.status === 401) {
+            // Token expired, redirect to login
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            window.location.href = '/chat/login/';
+            return;
+        }
+        
+        return response;
+    }
+    
+    async loadConversations() {
+        try {
+            console.log('🔄 Loading conversations...');
+            console.log('🔑 Using access token:', this.accessToken ? this.accessToken.substring(0, 50) + '...' : 'NO TOKEN');
+            
+            const response = await this.makeAuthenticatedRequest('/api/v1/conversations/');
+            console.log('📡 API Response status:', response.status);
+            console.log('📡 API Response headers:', Object.fromEntries(response.headers.entries()));
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('📦 FULL API RESPONSE:', JSON.stringify(data, null, 2));
+                console.log('🗂️ Conversations array:', data.data.conversations);
+                console.log('📊 Conversation count:', data.data.conversations.length);
+                
+                // Print each conversation details
+                if (data.data.conversations && data.data.conversations.length > 0) {
+                    console.log('📋 CONVERSATION DETAILS:');
+                    data.data.conversations.forEach((conv, index) => {
+                        console.log(`  ${index + 1}. ID: ${conv.id}`);
+                        console.log(`     Title: "${conv.title}"`);
+                        console.log(`     Scenario: "${conv.scenario.name}"`);
+                        console.log(`     User: "${conv.user.username}"`);
+                        console.log(`     Status: "${conv.status}"`);
+                        console.log(`     Messages: ${conv.message_count}`);
+                        console.log('     ---');
+                    });
+                } else {
+                    console.warn('⚠️ No conversations found in response');
+                }
+                
+                this.displayConversations(data.data.conversations);
+            } else {
+                console.error('❌ API Error - Status:', response.status);
+                const errorText = await response.text();
+                console.error('❌ Error Response:', errorText);
+                this.handleAPIError(response, '載入對話列表');
+            }
+        } catch (error) {
+            console.error('❌ Network Error:', error);
+            console.error('❌ Error stack:', error.stack);
+            this.handleNetworkError(error, '載入對話列表');
+        }
+    }
+    
+    displayConversations(conversations) {
+        console.log('🖼️ displayConversations called with:', conversations);
+        console.log('📍 conversationList element:', this.conversationList);
+        console.log('📍 conversationList element found:', !!this.conversationList);
+        
+        // Check if element exists in DOM
+        const elementInDOM = document.getElementById('conversation-list');
+        console.log('🔍 Element in DOM check:', !!elementInDOM);
+        console.log('🔍 Element class list:', elementInDOM ? elementInDOM.className : 'N/A');
+        
+        if (!this.conversationList) {
+            console.error('❌ conversationList element not found!');
+            console.error('❌ Available elements with "conversation" in id:');
+            const allElements = document.querySelectorAll('[id*="conversation"]');
+            allElements.forEach(el => console.log(`   - ${el.id}: ${el.tagName}`));
+            return;
+        }
+        
+        if (!conversations || conversations.length === 0) {
+            console.log('📭 No conversations found, showing empty state');
+            this.conversationList.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-comment-slash fa-2x mb-3"></i>
+                    <p class="mb-0">{% trans "No conversations found" %}</p>
+                </div>
+            `;
+            console.log('📄 Empty state HTML set, innerHTML length:', this.conversationList.innerHTML.length);
+            return;
+        }
+        
+        console.log('🏗️ Building conversation HTML for', conversations.length, 'conversations');
+        
+        const conversationHTML = conversations.map((conv, index) => {
+            console.log(`🔧 Processing conversation ${index + 1}:`, conv.id, conv.title);
+            const html = `
+                <div class="conversation-item" data-session-id="${conv.id}" onclick="chatApp.selectConversation('${conv.id}')">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="flex-grow-1">
+                            <div class="conversation-title">${conv.title || conv.scenario.name}</div>
+                            <div class="conversation-meta">
+                                ${conv.scenario.name} • ${new Date(conv.last_activity_at).toLocaleDateString()}
+                            </div>
+                        </div>
+                        <div class="conversation-actions">
+                            <button class="btn btn-sm btn-outline-danger" onclick="chatApp.deleteConversation('${conv.id}', event)" title="刪除對話">
+                                <i class="fas fa-trash fa-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            console.log(`🔧 Generated HTML for conversation ${index + 1} (length: ${html.length})`);
+            return html;
+        }).join('');
+        
+        console.log('🎨 Final HTML to insert (length:', conversationHTML.length, ')');
+        console.log('🎨 HTML preview:', conversationHTML.substring(0, 200) + '...');
+        
+        this.conversationList.innerHTML = conversationHTML;
+        
+        // Verify the HTML was inserted
+        console.log('✅ innerHTML set, final length:', this.conversationList.innerHTML.length);
+        console.log('🔍 Conversation items count after insert:', this.conversationList.querySelectorAll('.conversation-item').length);
+        
+        // Check if elements are visible
+        const items = this.conversationList.querySelectorAll('.conversation-item');
+        items.forEach((item, index) => {
+            const rect = item.getBoundingClientRect();
+            console.log(`📐 Conversation ${index + 1} visibility:`, {
+                width: rect.width,
+                height: rect.height,
+                display: window.getComputedStyle(item).display,
+                visibility: window.getComputedStyle(item).visibility
+            });
+        });
+    }
+    
+    async selectConversation(sessionId) {
+        // Prevent selecting the same conversation
+        if (this.currentSessionId === sessionId) return;
+        
+        // Update UI
+        document.querySelectorAll('.conversation-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        const selectedItem = document.querySelector(`[data-session-id="${sessionId}"]`);
+        if (selectedItem) {
+            selectedItem.classList.add('active');
+        }
+        
+        // Clear previous session state
+        this.removeWaitingIndicator();
+        
+        // Update current session
+        this.currentSessionId = sessionId;
+        if (this.messageInput) {
+            this.messageInput.disabled = false;
+            this.messageInput.placeholder = '輸入訊息...';
+        }
+        if (this.sendButton) {
+            this.sendButton.disabled = false;
+        }
+        if (this.llmSelector) {
+            this.llmSelector.disabled = false;
+        if (this.updateScenarioButton) {
+            this.updateScenarioButton.disabled = false;
+        }
+        }
+        if (this.updateScenarioButton) {
+            this.updateScenarioButton.disabled = false;
+        }
+        
+        // Clear scenario selector since we're using an existing conversation
+        if (this.scenarioSelector) {
+            this.scenarioSelector.value = '';
+        }
+        
+        // Clear message input
+        if (this.messageInput) {
+            this.messageInput.value = '';
+        }
+        
+        // Load session messages and scenario models
+        await this.loadSessionMessages(sessionId);
+        
+        // Focus on message input for better UX
+        if (this.messageInput) {
+            this.messageInput.focus();
+        }
+    }
+    
+    async createNewConversation() {
+        // This function would create a new conversation
+        // For now, we'll show an info message
+        this.showInfo('請選擇一個場景開始新的對話');
+    }
+    
+    async deleteConversation(sessionId, event) {
+        // Prevent triggering selectConversation
+        if (event) {
+            event.stopPropagation();
+        }
+        
+        if (!confirm('確定要刪除這個對話嗎？此操作無法復原。')) {
+            return;
+        }
+        
+        try {
+            const response = await this.makeAuthenticatedRequest(
+                `/api/v1/conversations/${sessionId}/`,
+                { method: 'DELETE' }
+            );
+            
+            if (response.ok) {
+                this.showSuccess('對話已刪除');
+                
+                // If deleted conversation was currently selected, reset to allow new conversations
+                if (this.currentSessionId === sessionId) {
+                    this.currentSessionId = null;
+                    this.messageInput.disabled = false;
+                    this.messageInput.placeholder = '請選擇場景或現有會話...';
+                    this.sendButton.disabled = false;
+                    this.llmSelector.disabled = true;
+            if (this.updateScenarioButton) {
+                this.updateScenarioButton.disabled = true;
+            }
+                    if (this.updateScenarioButton) {
+                        this.updateScenarioButton.disabled = true;
+                    }
+                    this.sessionTitle.textContent = '{% trans "Select a scenario" %}';
+                    // Reset scenario selector to default
+                    if (this.scenarioSelector) {
+                        this.scenarioSelector.value = '';
+                    }
+                    this.messagesContainer.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-comment-dots fa-3x mb-3"></i>
+                            <p class="mb-0">{% trans "Select a scenario to start chatting" %}</p>
+                        </div>
+                    `;
+                }
+                
+                // Refresh conversation list
+                await this.loadConversations();
+            } else {
+                const errorData = await response.json();
+                this.showError(errorData.detail || '刪除對話失敗');
+            }
+        } catch (error) {
+            this.showError('刪除對話時發生網路錯誤');
+        }
+    }
+    
+    async loadSessionMessages(sessionId) {
+        try {
+            this.messagesContainer.innerHTML = `
+                <div class="loading-indicator">
+                    <i class="fas fa-spinner fa-spin me-2"></i>
+                    {% trans "Loading messages..." %}
+                </div>
+            `;
+            
+            const response = await this.makeAuthenticatedRequest(`/api/v1/conversations/${sessionId}/`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                const session = data.data.session;
+                this.displayMessages(session.messages);
+                this.sessionTitle.textContent = session.title || session.scenario.name;
+                
+                // Load LLM models for this scenario
+                console.log('🎯 Loading models for scenario:', session.scenario.id, session.scenario.name);
+                await this.loadScenarioModels(session.scenario.id);
+                
+            } else {
+                this.handleAPIError(response, '載入訊息');
+            }
+        } catch (error) {
+            this.handleNetworkError(error, '載入訊息');
+        }
+    }
+    
+    displayMessages(messages) {
+        console.log('Displaying messages:', messages);
+        
+        if (messages.length === 0) {
+            this.messagesContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-comment-dots fa-2x mb-3"></i>
+                    <p class="mb-0">{% trans "No messages yet. Start the conversation!" %}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        this.messagesContainer.innerHTML = messages.map(msg => `
+            <div class="message ${msg.message_type || msg.role}">
+                <div class="message-bubble">
+                    ${msg.content.replace(/\n/g, '<br>')}
+                </div>
+            </div>
+        `).join('');
+        
+        // Scroll to bottom
+        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+        console.log(`Displayed ${messages.length} messages`);
+    }
+    
+    async sendMessage() {
+        console.log('sendMessage called');
+        
+        const content = this.messageInput.value.trim();
+        console.log('Message content:', content);
+        
+        if (!content) {
+            console.log('Empty message, not sending');
+            this.showInfo('請輸入訊息內容');
+            return;
+        }
+        
+        const llmModelId = this.getSelectedLLMModel();
+        console.log('Selected LLM model:', llmModelId);
+        
+        // Add user message to UI immediately
+        this.addMessageToUI('user', content);
+        this.messageInput.value = '';
+        
+        try {
+            // Always use the same API endpoint
+            const apiEndpoint = `/api/v1/conversations/messages/`;
+            let requestBody = {
+                content: content,
+                llm_model_id: llmModelId
+            };
+            
+            if (this.currentSessionId) {
+                // Case 1: Continue existing conversation - include session_id in body
+                console.log('Using existing session:', this.currentSessionId);
+                requestBody.session_id = this.currentSessionId;
+            } else {
+                // Case 2: Create new conversation - need scenario_id
+                console.log('No session selected, need to create new conversation');
+                
+                // Get selected scenario ID from dropdown
+                const selectedScenarioId = this.scenarioSelector.value;
+                if (!selectedScenarioId) {
+                    this.showError('請先選擇一個場景');
+                    return;
+                }
+                
+                console.log('Creating new conversation with scenario:', selectedScenarioId);
+                requestBody.scenario_id = selectedScenarioId;
+            }
+            
+            console.log('Sending request to:', apiEndpoint);
+            console.log('Request body:', requestBody);
+            
+            const response = await this.makeAuthenticatedRequest(apiEndpoint, {
+                method: 'POST',
+                body: JSON.stringify(requestBody)
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('Message sent successfully:', data);
+                
+                // If we created a new session, update currentSessionId
+                if (!this.currentSessionId && data.session_id) {
+                    console.log('New session created:', data.session_id);
+                    this.currentSessionId = data.session_id;
+                    
+                    // Enable input controls
+                    if (this.messageInput) this.messageInput.disabled = false;
+                    if (this.sendButton) this.sendButton.disabled = false;
+                    if (this.llmSelector) this.llmSelector.disabled = false;
+                    if (this.updateScenarioButton) this.updateScenarioButton.disabled = false;
+                    
+                    // Update session title with scenario name
+                    const selectedOption = this.scenarioSelector.selectedOptions[0];
+                    const scenarioName = selectedOption?.textContent || '新對話';
+                    this.sessionTitle.textContent = scenarioName;
+                    
+                    // Refresh conversation list to show the new conversation
+                    await this.loadConversations();
+                    
+                    // Highlight the new conversation
+                    setTimeout(() => {
+                        const newConvItem = document.querySelector(`[data-session-id="${data.session_id}"]`);
+                        if (newConvItem) {
+                            newConvItem.classList.add('active');
+                        }
+                    }, 500);
+                }
+                
+                this.pollForResponse();
+            } else {
+                console.error('Failed to send message:', response.status);
+                this.handleAPIError(response, '發送訊息');
+            }
+        } catch (error) {
+            console.error('Network error sending message:', error);
+            this.handleNetworkError(error, '發送訊息');
+        }
+    }
+    
+    addMessageToUI(role, content) {
+        console.log(`Adding message to UI: ${role} - ${content}`);
+        
+        if (!this.messagesContainer) {
+            console.error('Messages container not found!');
+            return;
+        }
+        
+        // Clear empty state if it exists
+        const emptyState = this.messagesContainer.querySelector('.empty-state');
+        if (emptyState) {
+            emptyState.remove();
+        }
+        
+        const messageElement = document.createElement('div');
+        messageElement.className = `message ${role}`;
+        messageElement.innerHTML = `
+            <div class="message-bubble">
+                ${content.replace(/\n/g, '<br>')}
+            </div>
+        `;
+        
+        console.log('Message element created:', messageElement);
+        this.messagesContainer.appendChild(messageElement);
+        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+        
+        console.log('Message added to UI successfully');
+    }
+    
+    async pollForResponse() {
+        if (!this.currentSessionId) return;
+        
+        // Remove any existing waiting indicator
+        const existingWaiting = document.getElementById('waiting-indicator');
+        if (!existingWaiting) {
+            this.showWaitingIndicator();
+        }
+        
+        const maxPollingAttempts = 30; // 30 seconds max
+        let attempts = 0;
+        
+        const pollInterval = setInterval(async () => {
+            attempts++;
+            
+            if (attempts > maxPollingAttempts) {
+                clearInterval(pollInterval);
+                this.removeWaitingIndicator();
+                this.showError('回應超時，請重新嘗試');
+                return;
+            }
+            
+            try {
+                const response = await this.makeAuthenticatedRequest(
+                    `/api/v1/conversations/${this.currentSessionId}/polling/?timeout=5`
+                );
+                
+                if (response.status === 200) {
+                    const message = await response.json();
+                    clearInterval(pollInterval);
+                    this.removeWaitingIndicator();
+                    this.addMessageToUI('assistant', message.content);
+                    
+                    // Update conversation list to reflect new activity
+                    this.refreshConversationList();
+                } else if (response.status === 204) {
+                    // Continue polling - no response yet
+                    return; // Exit this polling attempt, setInterval will call again
+                } else {
+                    clearInterval(pollInterval);
+                    this.removeWaitingIndicator();
+                    this.handleAPIError(response, '獲取 AI 回應');
+                }
+            } catch (error) {
+                clearInterval(pollInterval);
+                this.removeWaitingIndicator();
+                this.handleNetworkError(error, '獲取 AI 回應');
+            }
+        }, 1000); // Poll every second
+    }
+    
+    showWaitingIndicator() {
+        // Add a temporary waiting message
+        const waitingElement = document.createElement('div');
+        waitingElement.className = 'message assistant';
+        waitingElement.innerHTML = `
+            <div class="message-bubble">
+                <i class="fas fa-spinner fa-spin me-2"></i>
+                {% trans "AI is thinking..." %}
+            </div>
+        `;
+        waitingElement.id = 'waiting-indicator';
+        
+        // Remove any existing waiting indicator
+        this.removeWaitingIndicator();
+        
+        this.messagesContainer.appendChild(waitingElement);
+        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+    }
+    
+    removeWaitingIndicator() {
+        const existing = document.getElementById('waiting-indicator');
+        if (existing) existing.remove();
+    }
+    
+    async refreshConversationList() {
+        try {
+            const response = await this.makeAuthenticatedRequest('/api/v1/conversations/');
+            
+            if (response.ok) {
+                const data = await response.json();
+                this.displayConversations(data.data.conversations);
+                
+                // Re-highlight current conversation
+                if (this.currentSessionId) {
+                    const currentItem = document.querySelector(`[data-session-id="${this.currentSessionId}"]`);
+                    if (currentItem) {
+                        currentItem.classList.add('active');
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Failed to refresh conversation list:', error);
+        }
+    }
+    
+    async loadLLMModels() {
+        try {
+            console.log('🤖 Loading general LLM models (no scenario selected)');
+            
+            // Show placeholder when no scenario selected
+            this.llmSelector.innerHTML = '<option value="">{% trans "Select a conversation first" %}</option>';
+            this.llmSelector.disabled = true;
+            if (this.updateScenarioButton) {
+                this.updateScenarioButton.disabled = true;
+            }
+            
+        } catch (error) {
+            console.error('❌ Error loading LLM models:', error);
+            this.llmSelector.innerHTML = '<option value="">{% trans "Error loading models" %}</option>';
+            this.llmSelector.disabled = true;
+            if (this.updateScenarioButton) {
+                this.updateScenarioButton.disabled = true;
+            }
+        }
+    }
+    
+    async loadScenarioModels(scenarioId) {
+        try {
+            console.log('🎯 Loading LLM models for scenario:', scenarioId);
+            
+            const response = await this.makeAuthenticatedRequest(`/api/v1/scenarios/${scenarioId}/models/`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                console.log('🤖 Scenario models received:', data);
+                
+                const models = data.data.models;
+                if (models && models.length > 0) {
+                    this.displayLLMModels(models);
+                } else {
+                    console.warn('⚠️ No models found for scenario');
+                    this.llmSelector.innerHTML = '<option value="">{% trans "No models available" %}</option>';
+                    this.llmSelector.disabled = true;
+            if (this.updateScenarioButton) {
+                this.updateScenarioButton.disabled = true;
+            }
+                }
+            } else {
+                console.error('❌ Failed to load scenario models:', response.status);
+                this.llmSelector.innerHTML = '<option value="">{% trans "Failed to load models" %}</option>';
+                this.llmSelector.disabled = true;
+            if (this.updateScenarioButton) {
+                this.updateScenarioButton.disabled = true;
+            }
+            }
+            
+        } catch (error) {
+            console.error('❌ Error loading scenario models:', error);
+            this.llmSelector.innerHTML = '<option value="">{% trans "Error loading models" %}</option>';
+            this.llmSelector.disabled = true;
+            if (this.updateScenarioButton) {
+                this.updateScenarioButton.disabled = true;
+            }
+        }
+    }
+    
+    displayLLMModels(models) {
+        console.log('🖼️ Displaying LLM models:', models);
+        
+        if (!this.llmSelector) {
+            console.error('❌ LLM selector element not found');
+            return;
+        }
+        
+        // Generate options HTML
+        const optionsHTML = models.map(model => {
+            const isDefault = model.is_default ? ' (預設)' : '';
+            return `<option value="${model.id}" data-provider="${model.provider}" ${model.is_default ? 'selected' : ''}>
+                ${model.display_name}${isDefault}
+            </option>`;
+        }).join('');
+        
+        this.llmSelector.innerHTML = optionsHTML;
+        this.llmSelector.disabled = false;
+        if (this.updateScenarioButton) {
+            this.updateScenarioButton.disabled = false;
+        }
+        
+        console.log('✅ LLM models displayed, total options:', models.length);
+        
+        // Find and log the default model
+        const defaultModel = models.find(m => m.is_default);
+        if (defaultModel) {
+            console.log('🎯 Default model selected:', defaultModel.display_name);
+            this.showInfo(`已選擇預設模型：${defaultModel.display_name}`);
+        } else if (models.length > 0) {
+            // 如果沒有預設模型，選擇第一個（適用於新session）
+            console.log('🎯 No default model found, selecting first model:', models[0].display_name);
+            this.llmSelector.selectedIndex = 0;
+            this.showInfo(`已選擇模型：${models[0].display_name}`);
+        }
+        
+        // Add change event listener if not already added
+        if (!this.llmSelector.dataset.listenerAdded) {
+            this.llmSelector.addEventListener('change', (e) => {
+                const selectedOption = e.target.selectedOptions[0];
+                const provider = selectedOption?.dataset.provider;
+                
+                if (selectedOption && selectedOption.value) {
+                    console.log('🔄 Model selection changed:', selectedOption.textContent);
+                    this.showInfo(`已選擇模型：${selectedOption.textContent}`);
+                }
+            });
+            this.llmSelector.dataset.listenerAdded = 'true';
+        }
+    }
+    
+    getSelectedLLMModel() {
+        const selectedValue = this.llmSelector.value;
+        return selectedValue && selectedValue !== 'default' ? selectedValue : null;
+    }
+    
+    async loadScenarios() {
+        try {
+            console.log('🎯 Loading available scenarios...');
+            
+            // Get scenarios from conversations filters
+            const response = await this.makeAuthenticatedRequest('/api/v1/conversations/?page_size=1');
+            if (response.ok) {
+                const data = await response.json();
+                const filters = data.data?.filters;
+                
+                if (filters?.available_scenarios && filters.available_scenarios.length > 0) {
+                    console.log('🎯 Found scenarios:', filters.available_scenarios);
+                    this.displayScenarios(filters.available_scenarios);
+                } else {
+                    console.warn('⚠️ No scenarios found');
+                    this.scenarioSelector.innerHTML = '<option value="">沒有可用場景</option>';
+                    this.scenarioSelector.disabled = true;
+                }
+            } else {
+                console.error('❌ Failed to load scenarios:', response.status);
+                this.scenarioSelector.innerHTML = '<option value="">載入場景失敗</option>';
+                this.scenarioSelector.disabled = true;
+            }
+        } catch (error) {
+            console.error('❌ Error loading scenarios:', error);
+            this.scenarioSelector.innerHTML = '<option value="">載入場景錯誤</option>';
+            this.scenarioSelector.disabled = true;
+        }
+    }
+    
+    displayScenarios(scenarios) {
+        console.log('🖼️ Displaying scenarios:', scenarios);
+        
+        if (!this.scenarioSelector) {
+            console.error('❌ Scenario selector not found');
+            return;
+        }
+        
+        // Generate options HTML
+        const optionsHTML = '<option value="">{% trans "Select a scenario" %}</option>' + 
+            scenarios.map(scenario => 
+                `<option value="${scenario.id}">${scenario.name}</option>`
+            ).join('');
+        
+        this.scenarioSelector.innerHTML = optionsHTML;
+        this.scenarioSelector.disabled = false;
+        
+        console.log('✅ Scenarios displayed, total options:', scenarios.length);
+    }
+    
+    onScenarioSelected(scenarioId) {
+        console.log('🎯 Scenario selected:', scenarioId);
+        
+        if (!scenarioId) {
+            // No scenario selected, disable LLM selector
+            this.llmSelector.innerHTML = '<option value="">{% trans "Select LLM Model" %}</option>';
+            this.llmSelector.disabled = true;
+            if (this.updateScenarioButton) {
+                this.updateScenarioButton.disabled = true;
+            }
+            this.sessionTitle.textContent = '{% trans "Select a scenario" %}';
+            
+            // Clear messages area
+            this.messagesContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-comment-dots fa-3x mb-3"></i>
+                    <p class="mb-0">{% trans "Select a scenario to start chatting" %}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Update title and load models for this scenario
+        const selectedOption = this.scenarioSelector.selectedOptions[0];
+        const scenarioName = selectedOption?.textContent || '未知場景';
+        
+        this.sessionTitle.textContent = scenarioName;
+        this.showInfo(`已選擇場景：${scenarioName}`);
+        
+        // Clear session selection since we're starting new
+        this.currentSessionId = null;
+        
+        // Update conversations list to remove active selection
+        document.querySelectorAll('.conversation-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Load LLM models for this scenario
+        this.loadScenarioModels(scenarioId);
+        
+        // Update messages area
+        this.messagesContainer.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-comment-dots fa-3x mb-3"></i>
+                <p class="mb-0">準備開始與 ${scenarioName} 對話</p>
+            </div>
+        `;
+        
+        // Update input placeholder
+        if (this.messageInput) {
+            this.messageInput.placeholder = `輸入訊息開始與 ${scenarioName} 對話...`;
+        }
+    }
+    
+    async getDefaultScenarioId() {
+        try {
+            console.log('🎯 Getting default scenario ID...');
+            
+            // First, try to get available scenarios from conversations
+            const conversationsResponse = await this.makeAuthenticatedRequest('/api/v1/conversations/?page_size=1');
+            if (conversationsResponse.ok) {
+                const data = await conversationsResponse.json();
+                const filters = data.data?.filters;
+                
+                if (filters?.available_scenarios && filters.available_scenarios.length > 0) {
+                    const defaultScenario = filters.available_scenarios[0];
+                    console.log('🎯 Found default scenario from filters:', defaultScenario);
+                    return defaultScenario.id;
+                }
+            }
+            
+            // Fallback: If no scenarios found, you may need to implement 
+            // a dedicated scenarios API endpoint or use a hardcoded default
+            console.warn('⚠️ No scenarios found in conversations filters');
+            return null;
+            
+        } catch (error) {
+            console.error('❌ Error getting default scenario:', error);
+            return null;
+        }
+    }
+    
+    async updateScenarioModel() {
+        console.log('🔄 Updating scenario model...');
+        
+        // Ensure we have a current session and selected model
+        if (!this.currentSessionId) {
+            this.showError('請先選擇一個會話');
+            return;
+        }
+        
+        const selectedModelId = this.llmSelector.value;
+        if (!selectedModelId) {
+            this.showError('請先選擇一個模型');
+            return;
+        }
+        
+        // Get current session info to determine scenario_id
+        try {
+            // First get session details to find the scenario
+            const sessionResponse = await this.makeAuthenticatedRequest(`/api/v1/conversations/${this.currentSessionId}/`);
+            if (!sessionResponse.ok) {
+                this.showError('無法取得會話資訊');
+                return;
+            }
+            
+            const sessionData = await sessionResponse.json();
+            const scenarioId = sessionData.data.session.scenario.id;
+            
+            console.log('🎯 Updating scenario:', scenarioId, 'with model:', selectedModelId);
+            
+            // Disable button during update
+            this.updateScenarioButton.disabled = true;
+            this.updateScenarioButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> {% trans "Updating" %}';
+            
+            // Make the update request
+            const updateResponse = await this.makeAuthenticatedRequest(
+                `/api/v1/scenarios/${scenarioId}/`,
+                {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        model_id: selectedModelId
+                    })
+                }
+            );
+            
+            if (updateResponse.ok) {
+                const updateData = await updateResponse.json();
+                console.log('✅ Scenario model updated successfully:', updateData);
+                
+                this.showSuccess(`場景模型已更新為：${updateData.data.updated_model.display_name}`);
+                
+                // Refresh the models list for this scenario to reflect changes
+                await this.loadScenarioModels(scenarioId);
+                
+            } else {
+                const errorData = await updateResponse.json();
+                console.error('❌ Failed to update scenario model:', errorData);
+                this.showError(errorData.detail || '更新場景模型失敗');
+            }
+            
+        } catch (error) {
+            console.error('❌ Error updating scenario model:', error);
+            this.showError('更新場景模型時發生錯誤');
+        } finally {
+            // Re-enable button
+            this.updateScenarioButton.disabled = false;
+            this.updateScenarioButton.innerHTML = '{% trans "Update" %}';
+        }
+    }
+    
+    showError(message) {
+        console.error(message);
+        this.showNotification(message, 'danger');
+    }
+    
+    showSuccess(message) {
+        console.log(message);
+        this.showNotification(message, 'success');
+    }
+    
+    showInfo(message) {
+        console.log(message);
+        this.showNotification(message, 'info');
+    }
+    
+    showNotification(message, type = 'info') {
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = `alert alert-${type} alert-dismissible position-fixed`;
+        notification.style.cssText = `
+            top: 20px;
+            right: 20px;
+            z-index: 1050;
+            max-width: 400px;
+            animation: slideIn 0.3s ease-out;
+        `;
+        
+        // Add icons based on type
+        const icons = {
+            'danger': 'fas fa-exclamation-triangle',
+            'success': 'fas fa-check-circle',
+            'info': 'fas fa-info-circle',
+            'warning': 'fas fa-exclamation-circle'
+        };
+        
+        notification.innerHTML = `
+            <i class="${icons[type] || icons.info} me-2"></i>
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        // Add CSS animation if not already added
+        if (!document.getElementById('notification-styles')) {
+            const style = document.createElement('style');
+            style.id = 'notification-styles';
+            style.textContent = `
+                @keyframes slideIn {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes slideOut {
+                    from { transform: translateX(0); opacity: 1; }
+                    to { transform: translateX(100%); opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // Add to page
+        document.body.appendChild(notification);
+        
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOut 0.3s ease-in';
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.remove();
+                    }
+                }, 300);
+            }
+        }, 5000);
+        
+        // Bootstrap dismiss functionality
+        const closeButton = notification.querySelector('.btn-close');
+        closeButton.addEventListener('click', () => {
+            notification.style.animation = 'slideOut 0.3s ease-in';
+            setTimeout(() => notification.remove(), 300);
+        });
+    }
+    
+    handleNetworkError(error, context = '') {
+        console.error(`Network error in ${context}:`, error);
+        
+        if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            this.showError('網路連線中斷，請檢查網路連線');
+        } else if (error.name === 'AbortError') {
+            this.showError('請求逾時，請重新嘗試');
+        } else {
+            this.showError(`網路錯誤：${context || '操作失敗'}`);
+        }
+    }
+    
+    handleAPIError(response, context = '') {
+        console.error(`API error in ${context}:`, response.status, response.statusText);
+        
+        switch (response.status) {
+            case 400:
+                this.showError('請求格式錯誤，請檢查輸入內容');
+                break;
+            case 401:
+                this.showError('登入已過期，正在重新導向...');
+                setTimeout(() => {
+                    localStorage.removeItem('access_token');
+                    localStorage.removeItem('refresh_token');
+                    window.location.href = '/chat/login/';
+                }, 2000);
+                break;
+            case 403:
+                this.showError('權限不足，無法執行此操作');
+                break;
+            case 404:
+                this.showError('找不到請求的資源');
+                break;
+            case 429:
+                this.showError('請求過於頻繁，請稍後再試');
+                break;
+            case 500:
+                this.showError('伺服器內部錯誤，請稍後再試');
+                break;
+            case 503:
+                this.showError('服務暫時不可用，請稍後再試');
+                break;
+            default:
+                this.showError(`操作失敗：${context || '未知錯誤'}`);
+        }
+    }
+}
+
+// Initialize the chat app
+let chatApp;
+
+console.log('🎬 Script loaded, waiting for DOMContentLoaded...');
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM Content Loaded event fired');
+    console.log('🔍 Checking required elements before ChatApp initialization:');
+    
+    // Check if all required elements exist
+    const requiredElements = [
+        'conversation-list',
+        'messages-container', 
+        'message-input',
+        'send-button',
+        'llm-model-selector',
+        'scenario-selector',
+        'current-session-title',
+        'update-scenario-button'
+    ];
+    
+    let allElementsFound = true;
+    requiredElements.forEach(id => {
+        const element = document.getElementById(id);
+        console.log(`   ${id}: ${element ? '✅ FOUND' : '❌ MISSING'}`);
+        if (!element) allElementsFound = false;
+    });
+    
+    console.log(`🏁 All elements check: ${allElementsFound ? '✅ PASSED' : '❌ FAILED'}`);
+    
+    console.log('🚀 Creating ChatApp instance...');
+    chatApp = new ChatApp();
+    console.log('✅ ChatApp instance created:', !!chatApp);
+});
+</script>
+{% endblock %}

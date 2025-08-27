@@ -11,6 +11,56 @@ License: MIT
 
 Moved to [settings](https://cookiecutter-django.readthedocs.io/en/latest/1-getting-started/settings.html).
 
+## Development Setup
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Node.js (version 24.6 or compatible)
+- npm
+
+### Running the Application
+
+This project requires running both Django backend and webpack dev server for proper static file serving.
+
+#### 1. Start Django Backend Services
+
+```bash
+cd src/maiagent
+docker compose -f docker-compose.local.yml up -d
+```
+
+This starts:
+- Django web server (http://localhost:8000)
+- PostgreSQL database
+- Redis cache
+- Elasticsearch
+- Celery worker and beat
+
+#### 2. Start Webpack Dev Server
+
+```bash
+cd src/maiagent
+npm install  # Install dependencies (first time only)
+npm run dev  # Start webpack dev server
+```
+
+The webpack dev server runs on http://localhost:3000 and serves static files (CSS/JS) to Django.
+
+#### 3. Access the Application
+
+- Main application: http://localhost:8000
+- Django admin: http://localhost:8000/admin/
+
+**Important**: Both services must be running simultaneously. Django templates load static files from the webpack dev server at localhost:3000.
+
+### Troubleshooting
+
+If you see `net::ERR_CONNECTION_REFUSED` errors for static files:
+1. Ensure webpack dev server is running: `npm run dev`
+2. Check that port 3000 is available and not blocked by firewall
+3. Verify Django settings point to `http://localhost:3000/static/webpack_bundles/`
+
 ## Basic Commands
 
 ### Setting Up Your Users

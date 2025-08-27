@@ -1,0 +1,216 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}Chat Debug{% endblock %}
+
+{% block main %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h2>聊天介面調試頁面</h2>
+            
+            <div class="alert alert-info">
+                <h4>輸入框測試</h4>
+                <p>這個頁面用來測試基本的輸入框和按鈕功能</p>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>基本輸入測試</h3>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="test-input" class="form-label">測試輸入框</label>
+                        <textarea class="form-control" 
+                                  id="test-input" 
+                                  placeholder="在這裡輸入文字測試..."
+                                  rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-primary" id="test-button">
+                            <i class="fas fa-paper-plane me-2"></i>測試按鈕
+                        </button>
+                        <button type="button" class="btn btn-secondary ms-2" id="clear-button">
+                            清空
+                        </button>
+                    </div>
+                    <div class="mb-3">
+                        <div id="output-area" class="border p-3 bg-light" style="min-height: 100px;">
+                            <p class="text-muted">輸出會顯示在這裡...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>聊天室模擬</h3>
+                </div>
+                <div class="card-body">
+                    <div class="chat-simulation" style="border: 1px solid #dee2e6; border-radius: 8px; height: 300px; display: flex; flex-direction: column;">
+                        <div class="chat-messages" id="chat-messages" style="flex: 1; overflow-y: auto; padding: 1rem; background: #f8f9fa;">
+                            <div class="text-muted">聊天訊息會顯示在這裡...</div>
+                        </div>
+                        <div class="chat-input-area" style="padding: 1rem; background: #fff; border-top: 1px solid #dee2e6;">
+                            <div class="d-flex gap-2">
+                                <textarea class="form-control" 
+                                          id="chat-input" 
+                                          placeholder="輸入聊天訊息..."
+                                          rows="2"></textarea>
+                                <button type="button" class="btn btn-primary" id="chat-send">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>調試信息</h3>
+                </div>
+                <div class="card-body">
+                    <div id="debug-info" class="bg-dark text-light p-3" style="font-family: monospace; height: 200px; overflow-y: auto;">
+                        <div>Debug 控制台</div>
+                    </div>
+                    <button type="button" class="btn btn-warning mt-2" id="clear-debug">
+                        清空調試信息
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block inline_javascript %}
+<script>
+function debugLog(message) {
+    const debugInfo = document.getElementById('debug-info');
+    const timestamp = new Date().toLocaleTimeString();
+    debugInfo.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+    debugInfo.scrollTop = debugInfo.scrollHeight;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    debugLog('DOM Content Loaded');
+    
+    // 基本輸入測試
+    const testInput = document.getElementById('test-input');
+    const testButton = document.getElementById('test-button');
+    const clearButton = document.getElementById('clear-button');
+    const outputArea = document.getElementById('output-area');
+    
+    debugLog('Elements found: ' + JSON.stringify({
+        testInput: !!testInput,
+        testButton: !!testButton,
+        clearButton: !!clearButton,
+        outputArea: !!outputArea
+    }));
+    
+    if (testButton) {
+        testButton.addEventListener('click', function() {
+            debugLog('Test button clicked');
+            const value = testInput ? testInput.value : '';
+            if (outputArea) {
+                outputArea.innerHTML += `<div class="mb-2"><strong>輸入:</strong> ${value || '(空白)'}</div>`;
+            }
+        });
+    }
+    
+    if (clearButton) {
+        clearButton.addEventListener('click', function() {
+            debugLog('Clear button clicked');
+            if (testInput) testInput.value = '';
+            if (outputArea) outputArea.innerHTML = '<p class="text-muted">輸出會顯示在這裡...</p>';
+        });
+    }
+    
+    // 聊天模擬
+    const chatInput = document.getElementById('chat-input');
+    const chatSend = document.getElementById('chat-send');
+    const chatMessages = document.getElementById('chat-messages');
+    
+    debugLog('Chat elements found: ' + JSON.stringify({
+        chatInput: !!chatInput,
+        chatSend: !!chatSend,
+        chatMessages: !!chatMessages
+    }));
+    
+    function sendChatMessage() {
+        debugLog('Send chat message called');
+        const message = chatInput ? chatInput.value.trim() : '';
+        if (!message) {
+            debugLog('Empty message, not sending');
+            return;
+        }
+        
+        if (chatMessages) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'mb-2';
+            messageDiv.innerHTML = `
+                <div class="d-flex justify-content-end">
+                    <div class="bg-primary text-white rounded px-3 py-2" style="max-width: 70%;">
+                        ${message}
+                    </div>
+                </div>
+            `;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        if (chatInput) {
+            chatInput.value = '';
+        }
+        
+        debugLog(`Message sent: ${message}`);
+        
+        // 模擬回應
+        setTimeout(() => {
+            if (chatMessages) {
+                const replyDiv = document.createElement('div');
+                replyDiv.className = 'mb-2';
+                replyDiv.innerHTML = `
+                    <div class="d-flex justify-content-start">
+                        <div class="bg-light rounded px-3 py-2" style="max-width: 70%;">
+                            收到你的訊息: "${message}"
+                        </div>
+                    </div>
+                `;
+                chatMessages.appendChild(replyDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            debugLog('Auto reply sent');
+        }, 1000);
+    }
+    
+    if (chatSend) {
+        chatSend.addEventListener('click', sendChatMessage);
+    }
+    
+    if (chatInput) {
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                debugLog('Enter key pressed in chat input');
+                sendChatMessage();
+            }
+        });
+    }
+    
+    // 清空調試信息
+    const clearDebug = document.getElementById('clear-debug');
+    if (clearDebug) {
+        clearDebug.addEventListener('click', function() {
+            const debugInfo = document.getElementById('debug-info');
+            if (debugInfo) {
+                debugInfo.innerHTML = '<div>Debug 控制台</div>';
+            }
+        });
+    }
+    
+    debugLog('All event listeners set up');
+});
+</script>
+{% endblock %}

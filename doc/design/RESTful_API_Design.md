@@ -404,7 +404,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### 6. 更新場景設定
 
-**目的**：更新已存在場景的配置資訊
+**目的**：更新已存在場景的預設 LLM 模型配置
 
 **HTTP方法**：PUT  
 **URI**：`/api/v1/scenarios/{scenario_id}`
@@ -418,7 +418,118 @@ Content-Type: application/json
 Authorization: Bearer {jwt_token}
 ```
 
-**注意**：此API尚未完整實作，請參考API設計規範。
+**請求資料格式**：
+```json
+{
+  "model_id": "550e8400-e29b-41d4-a716-446655440200"
+}
+```
+
+**請求欄位說明**：
+- `model_id` (UUID, 必填): 要設定為預設的 LLM 模型 ID
+
+**API邏輯**：
+1. 驗證用戶權限（僅 admin 和 supervisor 可操作）
+2. 檢查場景是否存在且用戶有權限存取
+3. 驗證指定的 LLM 模型是否存在
+4. 更新 ScenarioModel 記錄，設定新的預設模型
+5. 將其他模型的 is_default 標記改為 False
+
+**實際測試案例**：
+
+**成功請求範例**：
+```
+PUT /api/v1/scenarios/f47ac10b-58cc-4372-a567-0e02b2c3d477
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+{
+  "model_id": "f47ac10b-58cc-4372-a567-0e02b2c3d500"
+}
+```
+
+**成功回應 (200 OK)**：
+```json
+{
+  "success": true,
+  "data": {
+    "scenario_id": "f47ac10b-58cc-4372-a567-0e02b2c3d477",
+    "scenario_name": "測試場景",
+    "updated_model": {
+      "id": "f47ac10b-58cc-4372-a567-0e02b2c3d500",
+      "provider": "anthropic",
+      "name": "claude-3",
+      "display_name": "Anthropic claude-3",
+      "is_default": true
+    }
+  },
+  "message": "場景設定更新成功",
+  "timestamp": "2025-08-27T12:00:00Z"
+}
+```
+
+**錯誤請求範例**：
+```
+PUT /api/v1/scenarios/f47ac10b-58cc-4372-a567-0e02b2c3d477
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+{
+  "model_id": "invalid-uuid"
+}
+```
+
+**錯誤回應 (400 Bad Request)**：
+```json
+{
+  "success": false,
+  "detail": "請求資料格式錯誤",
+  "errors": {
+    "model_id": ["指定的模型不存在"]
+  }
+}
+```
+
+**無權限請求範例**：
+```
+PUT /api/v1/scenarios/f47ac10b-58cc-4372-a567-0e02b2c3d477
+Content-Type: application/json
+Authorization: Bearer [employee用戶JWT]
+
+{
+  "model_id": "f47ac10b-58cc-4372-a567-0e02b2c3d500"
+}
+```
+
+**錯誤回應 (403 Forbidden)**：
+```json
+{
+  "detail": "You do not have permission to perform this action."
+}
+```
+
+**場景不存在請求範例**：
+```
+PUT /api/v1/scenarios/00000000-0000-0000-0000-000000000000
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+{
+  "model_id": "f47ac10b-58cc-4372-a567-0e02b2c3d500"
+}
+```
+
+**錯誤回應 (404 Not Found)**：
+```json
+{
+  "detail": "Not found."
+}
+```
+
+**權限說明**：
+- **Admin (管理員)**: 可以更新任何場景的模型設定
+- **Supervisor (主管)**: 僅能更新其群組有權限存取的場景
+- **Employee (員工)**: 無權限執行此操作
 
 **錯誤狀態碼**：
 - 400 Bad Request: 請求資料格式錯誤或未通過 Serializers 驗證
@@ -426,7 +537,6 @@ Authorization: Bearer {jwt_token}
 - 403 Forbidden: 使用者 Role 沒有修改該場景的權限
 - 404 Not Found: 場景不存在
 - 500 Internal Server Error: 伺服器遇到未預期的狀況
-- 503 Service Unavailable: 資料庫服務超載或系統維護中
 
 ---
 
