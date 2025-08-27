@@ -1,6 +1,6 @@
 # MaiAgent GenAI 自動回覆平台
 
-> 以 Django 為核心，結合 Celery、PostgreSQL、Elasticsearch 與 LangChain 的企業級對話系統。支援場景化配置、權限管控、非同步生成與全文檢索，協助團隊在安全可控的環境下快速導入 LLM 能力。
+> 以 Django 為核心，結合 Celery、PostgreSQL、Elasticsearch 與 LangChain 的企業級對話系統。支援場景化配置、權限管控、非同步生成與全文檢索，協助團隊在安全可控的環境下快速導入 LLM。
 
 ## 系統架構
 
@@ -58,6 +58,32 @@
 14. 前端顯示 AI 回覆訊息給使用者。
 
 ![傳送訊息時序圖](doc\design\Send_Message_SequenceDiagram.md)
+
+### 安全性、效能、可擴充性
+
+#### 安全性
+
+- **登入(JWT)**：使用 JSON Web Token 實現無狀態身份驗證，確保 API 存取的安全性與可擴展性。
+- **操作控管**：透過角色權限系統 (員工/主管/管理員) 控制使用者對不同功能的存取權限，使用 django-role-permissions 套件管理角色與權限映射。
+- **Celery 加密**：使用 TLS 加密保護 Celery 任務佇列通訊，確保非同步任務傳輸的資料安全。
+- **API input 輸入驗證**：使用 Django REST Framework 序列化器驗證所有 API 輸入，防止惡意資料注入。
+- **API 速率限制**：實施 API 呼叫頻率限制，防止濫用與 DDoS 攻擊。
+
+#### 效能
+
+- **Database query 效率**：使用資料庫索引與查詢最佳化，提升會話與訊息查詢的效能。
+- **分頁 query**：實施分頁機制避免大量資料載入，提供流暢的使用者體驗。
+- **連線池管理**：使用 PostgreSQL 連線池與 Redis 連線池，有效管理資料庫連線資源。
+
+#### 擴充性
+
+- **場景設定**：每個場景存放 config_json 以應對更複雜的路由邏輯，使用 LangChain 框架方便管理不同對話場景。
+- **多 model**：支援多種 LLM 模型 (GPT-4o、GPT-3.5-turbo、Claude-3-sonnet)，可依場景需求彈性選擇。
+- **角色可以擴充**：透過 role access 控制系統，可輕鬆新增新角色類型並設定對應權限。
+
+#### 錯誤處理
+
+- **狀態碼回傳**：根據遇到的狀況回傳相應的 HTTP 狀態碼，詳細說明請見 API 文件 (`doc/testing/API_TESTING_GUIDE.md` 與 `doc/design/API_Security_Performance_Design.md`)。
 
 ## 如何啟動專案
 
