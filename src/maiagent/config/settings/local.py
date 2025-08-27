@@ -82,5 +82,8 @@ CELERY_TASK_EAGER_PROPAGATES = True
 # django-webpack-loader
 # ------------------------------------------------------------------------------
 WEBPACK_LOADER["DEFAULT"]["CACHE"] = not DEBUG
+# Point to webpack dev server in development mode
+WEBPACK_LOADER["DEFAULT"]["BUNDLE_DIR_NAME"] = "webpack_bundles/"
+WEBPACK_LOADER["DEFAULT"]["PUBLIC_PATH"] = "http://localhost:3000/static/webpack_bundles/"
 # Your stuff...
 # ------------------------------------------------------------------------------

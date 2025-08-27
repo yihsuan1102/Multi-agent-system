@@ -1,0 +1,38 @@
+[
+  {
+    "model": "chat.session",
+    "pk": "550e8400-e29b-41d4-a716-446655440051",
+    "fields": {
+      "user": 4,
+      "scenario": "550e8400-e29b-41d4-a716-446655440022",
+      "title": "系統安裝問題諮詢",
+      "status": "Active",
+      "last_activity_at": "2024-01-15T10:30:00Z",
+      "created_at": "2024-01-15T10:00:00Z"
+    }
+  },
+  {
+    "model": "chat.session",
+    "pk": "550e8400-e29b-41d4-a716-446655440052",
+    "fields": {
+      "user": 5,
+      "scenario": "550e8400-e29b-41d4-a716-446655440023",
+      "title": "產品介紹與報價",
+      "status": "Closed",
+      "last_activity_at": "2024-01-14T16:45:00Z",
+      "created_at": "2024-01-14T14:20:00Z"
+    }
+  },
+  {
+    "model": "chat.session",
+    "pk": "550e8400-e29b-41d4-a716-446655440053",
+    "fields": {
+      "user": 6,
+      "scenario": "550e8400-e29b-41d4-a716-446655440021",
+      "title": "客戶退款申請處理",
+      "status": "Waiting",
+      "last_activity_at": "2024-01-16T09:15:00Z",
+      "created_at": "2024-01-16T09:00:00Z"
+    }
+  }
+]

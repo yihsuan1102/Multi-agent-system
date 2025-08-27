@@ -17,7 +17,7 @@ def validate_scenario_config_json(config: Dict[str, Any]) -> None:
 
 
 class Group(models.Model):
-    id = models.UUIDField(primary_key=True, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255, unique=True)
     description = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -33,7 +33,7 @@ class Group(models.Model):
 
 
 class LlmModel(models.Model):
-    id = models.UUIDField(primary_key=True, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     provider = models.CharField(max_length=64)
     name = models.CharField(max_length=128)
     params = models.JSONField(default=dict, blank=True)
@@ -49,7 +49,7 @@ class LlmModel(models.Model):
 
 
 class Scenario(models.Model):
-    id = models.UUIDField(primary_key=True, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255, unique=True)
     config_json = models.JSONField(validators=[validate_scenario_config_json])
     created_at = models.DateTimeField(auto_now_add=True)
@@ -62,7 +62,7 @@ class Scenario(models.Model):
 
 
 class ScenarioModel(models.Model):
-    id = models.UUIDField(primary_key=True, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     scenario = models.ForeignKey(Scenario, on_delete=models.CASCADE, related_name="scenario_models")
     llm_model = models.ForeignKey(LlmModel, on_delete=models.PROTECT, related_name="scenario_bindings")
     is_default = models.BooleanField(default=False)
@@ -80,7 +80,7 @@ class Session(models.Model):
         REPLYED = "Replyed", "Replyed"
         CLOSED = "Closed", "Closed"
 
-    id = models.UUIDField(primary_key=True, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sessions")
     scenario = models.ForeignKey(Scenario, on_delete=models.PROTECT, related_name="sessions")
     title = models.CharField(max_length=255, blank=True, default="")
@@ -101,7 +101,7 @@ class Message(models.Model):
         USER = "user", "user"
         ASSISTANT = "assistant", "assistant"
 
-    id = models.UUIDField(primary_key=True, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     session = models.ForeignKey(Session, on_delete=models.CASCADE, related_name="messages")
     role = models.CharField(max_length=16, choices=Role.choices)
     content = models.TextField()
@@ -128,7 +128,7 @@ class Message(models.Model):
 
 
 class GroupScenarioAccess(models.Model):
-    id = models.UUIDField(primary_key=True, editable=False)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     group = models.ForeignKey(Group, on_delete=models.CASCADE, related_name="scenario_accesses")
     scenario = models.ForeignKey(Scenario, on_delete=models.CASCADE, related_name="group_accesses")
 

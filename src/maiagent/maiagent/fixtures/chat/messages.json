@@ -1,0 +1,68 @@
+[
+  {
+    "model": "chat.message",
+    "pk": "550e8400-e29b-41d4-a716-446655440061",
+    "fields": {
+      "session": "550e8400-e29b-41d4-a716-446655440051",
+      "role": "user",
+      "content": "你好，我在安裝新系統時遇到錯誤訊息 'Permission denied'，請問該如何解決？",
+      "sequence_number": 1,
+      "created_at": "2024-01-15T10:00:00Z"
+    }
+  },
+  {
+    "model": "chat.message",
+    "pk": "550e8400-e29b-41d4-a716-446655440062",
+    "fields": {
+      "session": "550e8400-e29b-41d4-a716-446655440051",
+      "role": "assistant",
+      "content": "您好！'Permission denied' 錯誤通常是權限不足造成的。請嘗試以下解決方法：\n1. 使用管理員權限執行安裝程式\n2. 檢查防毒軟體是否阻擋了安裝\n3. 確認目標資料夾的寫入權限\n\n您目前使用的是什麼作業系統呢？",
+      "sequence_number": 2,
+      "created_at": "2024-01-15T10:01:00Z"
+    }
+  },
+  {
+    "model": "chat.message",
+    "pk": "550e8400-e29b-41d4-a716-446655440063",
+    "fields": {
+      "session": "550e8400-e29b-41d4-a716-446655440052",
+      "role": "user",
+      "content": "我想了解貴公司的企業級解決方案，請問有哪些產品可以選擇？",
+      "sequence_number": 1,
+      "created_at": "2024-01-14T14:20:00Z"
+    }
+  },
+  {
+    "model": "chat.message",
+    "pk": "550e8400-e29b-41d4-a716-446655440064",
+    "fields": {
+      "session": "550e8400-e29b-41d4-a716-446655440052",
+      "role": "assistant",
+      "content": "感謝您對我們產品的興趣！我們提供以下企業級解決方案：\n\n1. **智能客服系統** - 24/7 AI 驅動的客服機器人\n2. **企業協作平台** - 整合通訊、檔案管理、專案管理\n3. **數據分析套件** - 商業智能與報表系統\n\n請問您的企業規模大約多少人？這樣我可以為您推薦最合適的方案。",
+      "sequence_number": 2,
+      "created_at": "2024-01-14T14:22:00Z"
+    }
+  },
+  {
+    "model": "chat.message",
+    "pk": "550e8400-e29b-41d4-a716-446655440065",
+    "fields": {
+      "session": "550e8400-e29b-41d4-a716-446655440053",
+      "role": "user",
+      "content": "客戶 ID: C001234 想要申請退款，訂單編號是 ORD-2024-0115，請協助處理。",
+      "sequence_number": 1,
+      "created_at": "2024-01-16T09:00:00Z"
+    }
+  },
+  {
+    "model": "chat.message",
+    "pk": "550e8400-e29b-41d4-a716-446655440066",
+    "fields": {
+      "session": "550e8400-e29b-41d4-a716-446655440053",
+      "role": "assistant",
+      "content": "我已收到您的退款申請資訊：\n- 客戶 ID: C001234\n- 訂單編號: ORD-2024-0115\n\n我正在為您查詢相關資料，請問客戶提出退款的原因是什麼呢？這將有助於我們快速處理此案件。",
+      "sequence_number": 2,
+      "created_at": "2024-01-16T09:01:00Z"
+    }
+  }
+]

@@ -84,6 +84,7 @@ THIRD_PARTY_APPS = [
     "corsheaders",
     "drf_spectacular",
     "webpack_loader",
+    "rolepermissions",
 ]
 
 LOCAL_APPS = [
@@ -219,6 +220,11 @@ CSRF_COOKIE_HTTPONLY = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#x-frame-options
 X_FRAME_OPTIONS = "DENY"
 
+# SESSION
+# ------------------------------------------------------------------------------
+# https://docs.djangoproject.com/en/dev/ref/settings/#session-cookie-age
+SESSION_COOKIE_AGE = 3600  # 1 hour in seconds
+
 # EMAIL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
@@ -314,6 +320,27 @@ CELERY_WORKER_SEND_TASK_EVENTS = True
 CELERY_TASK_SEND_SENT_EVENT = True
 # https://docs.celeryq.dev/en/stable/userguide/configuration.html#worker-hijack-root-logger
 CELERY_WORKER_HIJACK_ROOT_LOGGER = False
+CELERY_TASK_DEFAULT_QUEUE = "default"
+CELERY_TASK_QUEUES = {
+    "default": {},
+    "ai_queue": {},
+    "monitor_queue": {},
+}
+CELERY_TASK_ROUTES = {
+    # AI 訊息處理任務走高優先級佇列
+    "maiagent.chat.tasks.process_message": {"queue": "ai_queue", "routing_key": "ai.process"},
+    # 系統監控任務
+    "maiagent.chat.tasks.system_health_check": {"queue": "monitor_queue", "routing_key": "monitor.health"},
+}
+
+# Celery Beat 排程（以資料庫排程器為主，提供預設值便於本地快速啟用）
+CELERY_BEAT_SCHEDULE = {
+    "system-health-check-5m": {
+        "task": "maiagent.chat.tasks.system_health_check",
+        "schedule": 5 * 60,
+        "options": {"queue": "monitor_queue", "routing_key": "monitor.health"},
+    }
+}
 
 # django-allauth
 # ------------------------------------------------------------------------------
@@ -323,7 +350,7 @@ ACCOUNT_LOGIN_METHODS = {"username"}
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 # https://docs.allauth.org/en/latest/account/configuration.html
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_EMAIL_VERIFICATION = "none"
 # https://docs.allauth.org/en/latest/account/configuration.html
 ACCOUNT_ADAPTER = "maiagent.users.adapters.AccountAdapter"
 # https://docs.allauth.org/en/latest/account/forms.html
@@ -368,5 +395,9 @@ WEBPACK_LOADER = {
         "IGNORE": [r".+\.hot-update.js", r".+\.map"],
     },
 }
+# django-role-permissions
+# ------------------------------------------------------------------------------
+# Basic roles used by the system. Implementations live in maiagent.users.roles
+ROLEPERMISSIONS_MODULE = "maiagent.users.roles"
 # Your stuff...
 # ------------------------------------------------------------------------------

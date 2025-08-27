@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(docker compose:*)",
+      "Bash(curl:*)",
+      "Bash(python:*)",
+      "Bash(Test-NetConnection -ComputerName localhost -Port 3000)",
+      "Bash(docker exec:*)",
+      "Bash(docker cp:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}Simple Chat Test{% endblock %}
+
+{% block main %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h2>簡單聊天測試</h2>
+            
+            <div class="card">
+                <div class="card-body">
+                    <!-- Messages Container -->
+                    <div id="messages" style="height: 300px; overflow-y: auto; border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; background: #f8f9fa;">
+                        <div class="text-muted">訊息會顯示在這裡...</div>
+                    </div>
+                    
+                    <!-- Input Area -->
+                    <div class="input-group">
+                        <textarea class="form-control" 
+                                  id="messageInput" 
+                                  placeholder="輸入訊息..."
+                                  rows="2"></textarea>
+                        <button class="btn btn-primary" 
+                                id="sendBtn" 
+                                type="button">SEND</button>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <button class="btn btn-secondary" id="clearBtn">清空</button>
+                        <button class="btn btn-info" id="testBtn">測試訊息</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header">Console Log</div>
+                <div class="card-body">
+                    <div id="console" style="height: 200px; overflow-y: auto; background: #2d3748; color: #e2e8f0; padding: 10px; font-family: monospace; font-size: 12px;">
+                        Console 輸出會顯示在這裡...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block inline_javascript %}
+<script>
+function log(message) {
+    const console = document.getElementById('console');
+    const timestamp = new Date().toLocaleTimeString();
+    console.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+    console.scrollTop = console.scrollHeight;
+}
+
+function addMessage(role, content) {
+    log(`addMessage called: ${role} - ${content}`);
+    
+    const messagesContainer = document.getElementById('messages');
+    if (!messagesContainer) {
+        log('ERROR: Messages container not found!');
+        return;
+    }
+    
+    // Clear placeholder text
+    const placeholder = messagesContainer.querySelector('.text-muted');
+    if (placeholder && placeholder.textContent.includes('訊息會顯示在這裡')) {
+        placeholder.remove();
+        log('Removed placeholder text');
+    }
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `mb-2`;
+    
+    if (role === 'user') {
+        messageDiv.innerHTML = `
+            <div class="d-flex justify-content-end">
+                <div class="bg-primary text-white rounded px-3 py-2" style="max-width: 70%;">
+                    ${content}
+                </div>
+            </div>
+        `;
+    } else {
+        messageDiv.innerHTML = `
+            <div class="d-flex justify-content-start">
+                <div class="bg-light rounded px-3 py-2" style="max-width: 70%;">
+                    ${content}
+                </div>
+            </div>
+        `;
+    }
+    
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    log(`Message added successfully: ${role}`);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    log('DOM Content Loaded');
+    
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const testBtn = document.getElementById('testBtn');
+    
+    log(`Elements found: input=${!!messageInput}, send=${!!sendBtn}, clear=${!!clearBtn}, test=${!!testBtn}`);
+    
+    function sendMessage() {
+        log('sendMessage called');
+        const content = messageInput.value.trim();
+        
+        if (!content) {
+            log('Empty message, not sending');
+            return;
+        }
+        
+        log(`Sending message: ${content}`);
+        addMessage('user', content);
+        messageInput.value = '';
+        
+        // Add assistant response after 1 second
+        setTimeout(() => {
+            addMessage('assistant', `收到您的訊息："${content}"`);
+        }, 1000);
+    }
+    
+    if (sendBtn) {
+        sendBtn.addEventListener('click', function() {
+            log('Send button clicked');
+            sendMessage();
+        });
+    }
+    
+    if (messageInput) {
+        messageInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                log('Enter key pressed');
+                sendMessage();
+            }
+        });
+    }
+    
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function() {
+            log('Clear button clicked');
+            const messagesContainer = document.getElementById('messages');
+            if (messagesContainer) {
+                messagesContainer.innerHTML = '<div class="text-muted">訊息會顯示在這裡...</div>';
+            }
+        });
+    }
+    
+    if (testBtn) {
+        testBtn.addEventListener('click', function() {
+            log('Test button clicked');
+            addMessage('user', '這是一個測試訊息');
+            setTimeout(() => {
+                addMessage('assistant', '這是助手的測試回應');
+            }, 500);
+        });
+    }
+    
+    log('All event listeners attached');
+});
+</script>
+{% endblock %}

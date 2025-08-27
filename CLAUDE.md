@@ -175,3 +175,5 @@ When multiple valid approaches exist, choose based on:
 - Stop after 3 failed attempts and reassess
 
 - PowerShell 指令串接：Windows PowerShell 不支援 `&&`，請用分號或逐行執行。
+- 所有服務都要用 docker 跑，從 `.\src\maiagent` 執行 `docker compose -f docker-compose.local.yml up -d` 
+- 忽略 Elasticsearch 相關的搜尋、同步任務實作

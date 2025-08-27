@@ -26,6 +26,8 @@ urlpatterns = [
     # User management
     path("users/", include("maiagent.users.urls", namespace="users")),
     path("accounts/", include("allauth.urls")),
+    # Chat application
+    path("chat/", include("maiagent.chat.urls", namespace="chat")),
     # Your stuff: custom urls includes go here
     # ...
     # Media files

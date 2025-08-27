@@ -4,16 +4,132 @@
 
 ## 系統架構
 
-![系統架構圖](../../doc/design/System_Architecture.png)
+![系統架構圖](doc/design/System_Architecture.png)
+
+## 資料庫架構
+
+![資料庫架構圖](doc/design/Database_schema.png)
 
 ## 核心組件簡介
 
 - **Server（Django）**：提供 RESTful API 與 Web 入口，負責接收使用者訊息、寫入資料庫並觸發 Celery 任務，亦提供會話列表與全文檢索查詢功能。參考 `doc/design/RESTful_API_Design.md`。
 - **PostgreSQL**：主要關聯式資料庫，儲存使用者/群組/角色與權限、場景設定、會話與訊息、任務狀態等結構化資料，透過索引與外鍵維持一致性。參考 `doc/design/Database_Design.md`。
-- **Elasticsearch**：會話與訊息的全文檢索引擎，採用 IK 中文分詞，支援依角色/群組的權限邊界查詢與高亮顯示。參考 `doc/design/Elasticsearch_Fields_design.md`。
+- **Elasticsearch**：會話與訊息的全文檢索引擎，支援依角色/群組的權限邊界查詢與高亮顯示。參考 `doc/design/Elasticsearch_Fields_design.md`。
 - **Celery**：非同步任務佇列，處理 LLM 生成與長耗時工作；具備 TLS 加密的 Broker、連線池與退避重試等穩定性機制。參考 `doc/design/Celery_Design.md`。
-- **LangChain（LLMs）**：封裝場景化對話流程與 RAG/Prompt 設定，依場景配置產生 AI 回覆並回寫結果；同時提供場景列表與設定能力。概要見 `doc/design/System_Architecture.md`。
 - **操作與權限模型**：以「一人一角色、一公司一群組」為邊界，對應全文檢索、場景管理與對話等操作的授權規則。參考 `doc/design/Operations_and_Permissions_Mapping.md`。
+
+## API 說明
+
+### 主要 API 端點
+
+| 功能 | HTTP 方法 | URI | 權限角色 | 說明 |
+|------|-----------|-----|----------|------|
+| **提交對話** | POST | `/api/v1/conversations/messages/` | 員工、主管、管理員 | 發送訊息到現有會話或建立新會話 |
+| **顯示所有會話** | GET | `/api/v1/conversations/` | 員工、主管、管理員 | 取得用戶可存取的會話列表 |
+| **查詢特定會話** | GET | `/api/v1/conversations/{session_id}/` | 會話擁有者、管理員 | 取得會話詳細資訊和訊息 |
+| **刪除特定對話** | DELETE | `/api/v1/conversations/{session_id}/` | 會話擁有者、管理員 | 刪除會話及所有相關訊息 |
+| **回覆結果** | GET | `/api/v1/conversations/{session_id}/polling/` | 會話擁有者、管理員 | 輪詢取得 AI 回覆結果 |
+| **更新場景設定** | PUT | `/api/v1/scenarios/{scenario_id}/` | 主管、管理員 | 更新場景的預設 LLM 模型 |
+| **取得場景模型** | GET | `/api/v1/scenarios/{scenario_id}/models/` | 員工、主管、管理員 | 取得場景可用的 LLM 模型列表 |
+
+### 權限說明
+
+- **員工**：可以在授權場景中發送訊息、查看自己的會話、刪除自己的會話
+- **主管**：擁有員工權限 + 可以管理場景設定、查看部門內會話
+- **管理員**：擁有所有權限，可以存取所有會話和系統設定
+
+## 自動回覆流程
+
+### 完整流程步驟
+
+1.  使用者點擊 **Send** 按鈕或按下 **Enter** 鍵。
+2.  前端呼叫 `sendMessage()` 方法。
+3.  前端發送 **POST** 請求到 `/api/v1/conversations/messages/`。
+4.  Django API 的 `post_message_no_session()` 函式接收請求。
+5.  Django API 呼叫 `post_message()` 函式處理訊息。
+6.  `post_message()` 函式將使用者訊息資料傳送給資料庫，並將任務參數 `(session_id, message_id)` 傳送給 Celery。
+7.  Django API 回傳成功回應 (**HTTP 201**) 給前端。
+8.  前端立即啟動 `pollForResponse()` 方法。
+9.  前端開始輪詢 `GET /api/v1/conversations/{session_id}/polling/`。
+10. Django API 的 `polling()` 函式檢查資料庫中的 Session 狀態。
+11. Celery 的 `process_message()` 函式生成 AI 回覆。
+12. Celery 將 AI 回覆內容傳送給資料庫，並更新資料庫中的 Session 狀態為 **REPLYED**。
+13. Django API 的 `polling()` 函式從資料庫取得最新的 Assistant Message。
+14. 前端顯示 AI 回覆訊息給使用者。
+
+![傳送訊息時序圖](doc\design\Send_Message_SequenceDiagram.md)
+
+## 如何啟動專案
+
+### 使用 Docker (推薦)
+
+```bash
+# 1. 進入專案目錄
+cd .\src\maiagent
+
+# 2. 啟動所有服務
+docker compose -f docker-compose.local.yml up -d
+
+# 3. 載入測試資料
+docker compose -f docker-compose.local.yml exec django python manage.py load_fixtures
+```
+
+### 服務端點
+
+- **Django Web**: http://localhost:8000
+- **Django Admin**: http://localhost:8000/admin/
+- **Chat 聊天室**: http://localhost:8000/chat/
+- **API 文檔**: http://localhost:8000/api/docs/
+- **Flower (Celery監控)**: http://localhost:5555
+- **Redis**: localhost:6379
+- **PostgreSQL**: localhost:5432
+- **Elasticsearch**: http://localhost:9200
+
+## 測試帳號
+
+系統提供以下測試帳號，密碼均為 `admin123`：
+
+| 使用者名稱 | 密碼 | 角色 | 部門 | 說明 |
+|-----------|------|------|------|------|
+| `admin` | `admin123` | 管理員 | - | 系統管理員，擁有所有權限 |
+| `supervisor_it` | `admin123` | 主管 | IT部門 | IT部門主管，可管理場景設定 |
+| `supervisor_sales` | `admin123` | 主管 | 銷售部門 | 銷售部門主管，可管理場景設定 |
+| `employee_it_001` | `admin123` | 員工 | IT部門 | 張小明，IT部門員工 |
+| `employee_sales_001` | `admin123` | 員工 | 銷售部門 | 李小華，銷售部門員工 |
+| `employee_cs_001` | `admin123` | 員工 | 客服部門 | 王小美，客服部門員工 |
+
+### 測試資料內容
+
+**預設群組**：
+- IT部門 - 資訊科技部門
+- 銷售部門 - 業務銷售部門  
+- 客服部門 - 客戶服務部門
+
+**LLM 模型**：
+- OpenAI GPT-4o
+- OpenAI GPT-3.5-turbo
+- Anthropic Claude-3-sonnet
+
+**對話場景**：
+- 客服助手 - 友善耐心的客服對話
+- 技術支援 - 專業技術問題解決
+- 銷售顧問 - 產品推薦與解決方案
+
+## 管理指令
+
+```bash
+# 重設所有使用者密碼為 admin123
+docker compose -f docker-compose.local.yml exec django python manage.py reset_passwords
+
+# 清空所有資料
+docker compose -f docker-compose.local.yml exec django python manage.py clear_data --all
+
+# 重新載入測試資料
+docker compose -f docker-compose.local.yml exec django python manage.py load_fixtures
+
+# 查看系統狀態
+docker compose -f docker-compose.local.yml ps
+```
 
 ---
 
@@ -21,28 +137,3 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 License: MIT
-
-## 開發與測試（框架預設）
-
-### 建立超級使用者
-
-```bash
-python manage.py createsuperuser
-```
-
-### 型別與測試
-
-```bash
-mypy maiagent
-pytest
-coverage run -m pytest && coverage html
-```
-
-### 啟動 Celery（本機）
-
-```bash
-celery -A config.celery_app worker -l info
-celery -A config.celery_app beat
-```
-
-更多框架預設說明可參考 Cookiecutter Django 官方文件。

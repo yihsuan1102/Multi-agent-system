@@ -21,6 +21,8 @@
   <link rel="icon" href="{% static 'images/favicons/favicon.ico' %}" />
   {% block css %}
 <!-- Your stuff: Third-party CSS libraries go here -->
+<!-- FontAwesome Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 <!-- This file stores project-specific CSS -->
 
 
@@ -71,6 +73,11 @@
             </li>
             {% if request.user.is_authenticated %}
               <li class="nav-item">
+                <a class="nav-link" href="{% url 'chat:room' %}">
+                  <i class="fas fa-comments me-1"></i>{% translate "Chat" %}
+                </a>
+              </li>
+              <li class="nav-item">
                 <a class="nav-link"
                    href="{% url 'users:detail' request.user.username %}">{% translate "My Profile" %}</a>
               </li>
@@ -91,6 +98,15 @@
               </li>
             {% endif %}
           </ul>
+          {% if request.user.is_authenticated %}
+          <ul class="navbar-nav ms-auto">
+            <li class="nav-item">
+              <span class="navbar-text">
+                <i class="fas fa-user me-1"></i>{{ request.user.name|default:request.user.username }}
+              </span>
+            </li>
+          </ul>
+          {% endif %}
         </div>
       </div>
     </nav>
