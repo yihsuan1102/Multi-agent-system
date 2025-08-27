@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% load static i18n %}
+
+{% block title %}{% trans "Chat Test Manual" %}{% endblock %}
+
+{% block main %}
+<div class="container">
+    <div class="row">
+        <div class="col-12">
+            <h2>聊天介面手動測試指南</h2>
+            
+            <div class="alert alert-info">
+                <h4>測試準備</h4>
+                <ol>
+                    <li>確保 Docker 服務運行中：<code>docker compose -f docker-compose.local.yml ps</code></li>
+                    <li>確保有測試用戶：<code>testuser1</code> / <code>testuser2</code></li>
+                    <li>確保數據庫有測試會話和訊息</li>
+                </ol>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>第一步：登入測試</h3>
+                </div>
+                <div class="card-body">
+                    <p><strong>測試 URL：</strong> <a href="/chat/login/" target="_blank">/chat/login/</a></p>
+                    <h5>測試項目：</h5>
+                    <ul>
+                        <li>✅ 登入頁面載入正常</li>
+                        <li>✅ 輸入錯誤密碼顯示錯誤訊息</li>
+                        <li>✅ 輸入正確密碼成功登入並重導向</li>
+                        <li>✅ Loading 狀態顯示</li>
+                        <li>✅ 登入成功後跳轉到聊天室</li>
+                    </ul>
+                    
+                    <div class="alert alert-secondary">
+                        <strong>測試帳號：</strong><br>
+                        用戶名：<code>testuser1</code><br>
+                        密碼：<code>testpassword</code>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>第二步：聊天室界面測試</h3>
+                </div>
+                <div class="card-body">
+                    <p><strong>測試 URL：</strong> <a href="/chat/" target="_blank">/chat/</a></p>
+                    <h5>測試項目：</h5>
+                    <ul>
+                        <li>✅ 左側對話列表載入</li>
+                        <li>✅ 顯示會話 ID 和描述</li>
+                        <li>✅ 右側聊天區域佈局正確</li>
+                        <li>✅ 上方 LLM 模型下拉選單</li>
+                        <li>✅ 下方訊息輸入欄和發送按鈕</li>
+                        <li>✅ 未選擇會話時顯示提示訊息</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>第三步：API 3 整合測試 (對話列表)</h3>
+                </div>
+                <div class="card-body">
+                    <h5>測試項目：</h5>
+                    <ul>
+                        <li>✅ 載入會話列表成功</li>
+                        <li>✅ 顯示會話標題/場景名稱</li>
+                        <li>✅ 顯示最後活動時間</li>
+                        <li>✅ 會話項目可點擊</li>
+                        <li>✅ 刪除按鈕正常顯示</li>
+                    </ul>
+                    
+                    <div class="alert alert-warning">
+                        <strong>如果對話列表為空：</strong><br>
+                        1. 檢查用戶權限和群組設置<br>
+                        2. 確保資料庫中有對應的 Session 資料<br>
+                        3. 檢查 API 3 回應格式
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>第四步：API 4 整合測試 (會話訊息)</h3>
+                </div>
+                <div class="card-body">
+                    <h5>測試項目：</h5>
+                    <ul>
+                        <li>✅ 點擊會話載入訊息</li>
+                        <li>✅ 顯示用戶和助手訊息</li>
+                        <li>✅ 訊息排序正確 (按 sequence_number)</li>
+                        <li>✅ 訊息氣泡樣式不同</li>
+                        <li>✅ 自動滾動到最新訊息</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>第五步：LLM 模型選擇測試</h3>
+                </div>
+                <div class="card-body">
+                    <h5>測試項目：</h5>
+                    <ul>
+                        <li>✅ 下拉選單載入模型選項</li>
+                        <li>✅ 選擇模型時顯示提示</li>
+                        <li>✅ 模型資訊正確顯示</li>
+                        <li>✅ 選擇狀態持續到會話切換</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>第六步：訊息發送測試</h3>
+                </div>
+                <div class="card-body">
+                    <h5>測試項目：</h5>
+                    <ul>
+                        <li>✅ 輸入訊息並發送</li>
+                        <li>✅ 訊息立即顯示在聊天區域</li>
+                        <li>✅ 發送後清空輸入欄</li>
+                        <li>✅ 顯示 AI 思考中指示器</li>
+                        <li>✅ 輪詢 AI 回應</li>
+                        <li>✅ AI 回應顯示正確</li>
+                    </ul>
+                    
+                    <div class="alert alert-info">
+                        <strong>注意：</strong>如果 AI 回應測試失敗，可能是因為：<br>
+                        1. Celery 服務未啟動<br>
+                        2. LLM 服務配置問題<br>
+                        3. 網路連線問題
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>第七步：錯誤處理測試</h3>
+                </div>
+                <div class="card-body">
+                    <h5>測試項目：</h5>
+                    <ul>
+                        <li>✅ 網路錯誤顯示適當訊息</li>
+                        <li>✅ 401 錯誤重導向登入</li>
+                        <li>✅ 403 權限錯誤提示</li>
+                        <li>✅ 404 資源不存在提示</li>
+                        <li>✅ 500 伺服器錯誤提示</li>
+                        <li>✅ 通知彈出和自動消失</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>第八步：互動功能測試</h3>
+                </div>
+                <div class="card-body">
+                    <h5>測試項目：</h5>
+                    <ul>
+                        <li>✅ 會話切換正常</li>
+                        <li>✅ 刪除會話確認對話</li>
+                        <li>✅ 刪除後更新列表</li>
+                        <li>✅ Enter 鍵發送訊息</li>
+                        <li>✅ Shift+Enter 換行</li>
+                        <li>✅ 對話列表實時更新</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="alert alert-success">
+                <h4>完成測試後</h4>
+                <p>如果所有測試項目都通過，恭喜！聊天介面實作完成。</p>
+                <p>如果有任何測試失敗，請檢查：</p>
+                <ul>
+                    <li>瀏覽器開發者工具的 Console 錯誤</li>
+                    <li>網路請求的回應狀態</li>
+                    <li>Django 伺服器日誌</li>
+                    <li>資料庫數據完整性</li>
+                </ul>
+            </div>
+
+            <div class="text-center mt-4">
+                <a href="/chat/login/" class="btn btn-primary btn-lg me-3">
+                    <i class="fas fa-sign-in-alt me-2"></i>開始測試登入
+                </a>
+                <a href="/chat/" class="btn btn-success btn-lg">
+                    <i class="fas fa-comments me-2"></i>直接進入聊天室
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

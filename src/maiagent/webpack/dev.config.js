@@ -4,6 +4,9 @@ const commonConfig = require('./common.config');
 module.exports = merge(commonConfig, {
   mode: 'development',
   devtool: 'inline-source-map',
+  output: {
+    publicPath: 'http://localhost:3000/static/webpack_bundles/',
+  },
   devServer: {
     port: 3000,
     proxy: [
