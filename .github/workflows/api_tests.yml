@@ -60,7 +60,7 @@ jobs:
         REDIS_URL: redis://localhost:6379/0
       run: |
         cd src/maiagent
-        python manage.py dbshell --settings=config.settings.test -c "SELECT version();" || echo "DB connection test"
+        echo "SELECT version();" | python manage.py dbshell --settings=config.settings.test || echo "DB connection test"
         python manage.py flush --noinput --settings=config.settings.test || echo "DB flush completed"
     
     - name: 執行資料庫遷移
@@ -80,7 +80,7 @@ jobs:
       run: |
         cd src/maiagent
         echo "Checking database tables exist..."
-        python manage.py dbshell --settings=config.settings.test -c "\dt" || echo "List tables completed"
+        echo "\dt" | python manage.py dbshell --settings=config.settings.test || echo "List tables completed"
         echo "Loading test fixtures..."
         python manage.py loaddata maiagent/chat/fixtures/test/test_groups.json --settings=config.settings.test --verbosity=2
         python manage.py loaddata maiagent/chat/fixtures/test/test_scenarios.json --settings=config.settings.test --verbosity=2
