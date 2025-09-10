@@ -57,7 +57,45 @@
 13. Django API 的 `polling()` 函式從資料庫取得最新的 Assistant Message。
 14. 前端顯示 AI 回覆訊息給使用者。
 
-![傳送訊息時序圖](doc\design\Send_Message_SequenceDiagram.md)
+### 傳送訊息時序圖
+
+```mermaid
+sequenceDiagram
+    participant User as 用戶
+    participant Frontend as 前端 (room.html)
+    participant API as Django API
+    participant Celery as Celery Worker
+    participant DB as PostgreSQL
+
+    User->>Frontend: 點擊 Send 按鈕
+    Frontend->>API: POST /api/v1/conversations/messages/
+    API->>DB: 建立 User Message, 設定 Session 為 WAITING
+    API->>Celery: process_message.delay(session_id, message_id)
+    API-->>Frontend: 201 Created (含 session_id)
+    
+    Frontend->>Frontend: 啟動 pollForResponse()
+    
+    loop 每秒輪詢 (最多30次)
+        Frontend->>API: GET /api/v1/conversations/{session_id}/polling/
+        API->>DB: 檢查 Session 狀態
+        
+        alt Session.status == REPLYED
+            API->>DB: 取得最新 Assistant Message
+            API-->>Frontend: 200 OK (含訊息內容)
+            Frontend->>Frontend: 顯示 AI 回覆，停止輪詢
+        else Session.status == WAITING
+            API-->>Frontend: 204 No Content
+            Frontend->>Frontend: 繼續輪詢
+        end
+    end
+    
+    Note over Celery: 背景處理
+    Celery->>Celery: 生成 AI 回覆
+    Celery->>DB: 建立 Assistant Message
+    Celery->>DB: 設定 Session 為 REPLYED
+```
+
+> 詳細時序圖設計請參考：[Send_Message_SequenceDiagram.md](doc/design/Send_Message_SequenceDiagram.md)
 
 ### 安全性、效能、可擴充性
 
@@ -89,6 +127,10 @@
 
 ### 使用 Docker (推薦)
 
+**重要：此專案需要同時啟動 Django 後端服務和 Webpack 前端開發伺服器才能正常運作**
+
+#### 1. 啟動 Django 後端服務
+
 ```bash
 # 1. 進入專案目錄
 cd .\src\maiagent
@@ -96,9 +138,34 @@ cd .\src\maiagent
 # 2. 啟動所有服務
 docker compose -f docker-compose.local.yml up -d
 
-# 3. 載入測試資料
+# 3. 建立資料庫結構 (首次執行)
+docker compose -f docker-compose.local.yml exec django python manage.py makemigrations chat
+docker compose -f docker-compose.local.yml exec django python manage.py migrate
+
+# 4. 載入測試資料
 docker compose -f docker-compose.local.yml exec django python manage.py load_fixtures
 ```
+
+#### 2. 啟動 Webpack 前端開發伺服器
+
+**在另一個終端視窗中執行：**
+
+```bash
+# 1. 進入專案目錄 (與上面相同)
+cd .\src\maiagent
+
+# 2. 安裝前端依賴 (首次執行)
+npm install
+
+# 3. 啟動 Webpack 開發伺服器
+npm run dev
+```
+
+#### 3. 驗證啟動成功
+
+- Webpack 開發伺服器會在 `http://localhost:8080` 提供靜態資源 (CSS/JS)
+- Django 應用程式可通過 `http://localhost:8000` 存取
+- **必須兩個服務都正常運行**，否則會出現樣式載入失敗或頁面無法正常顯示的問題
 
 ### 服務端點
 

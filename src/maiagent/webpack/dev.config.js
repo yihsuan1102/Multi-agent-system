@@ -5,10 +5,10 @@ module.exports = merge(commonConfig, {
   mode: 'development',
   devtool: 'inline-source-map',
   output: {
-    publicPath: 'http://localhost:3000/static/webpack_bundles/',
+    publicPath: 'http://localhost:8080/static/webpack_bundles/',
   },
   devServer: {
-    port: 3000,
+    port: 8080,
     proxy: [
       {
         context: ['/'],
